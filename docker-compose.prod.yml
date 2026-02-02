@@ -1,0 +1,12 @@
+services:
+    nginx:
+        ports:
+          - "80:80"
+          - "443:443"
+        volumes:
+          - /etc/letsencrypt/live/econmodels.venta.lv/fullchain.pem:/etc/ssl/certs/fullchain.pem:ro
+          - /etc/letsencrypt/live/econmodels.venta.lv/privkey.pem:/etc/ssl/private/privkey.pem:ro
+
+    db:
+        ports:
+          - "3307:3306"

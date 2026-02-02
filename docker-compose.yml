@@ -7,6 +7,7 @@ services:
     working_dir: /var/www/html
     volumes:
       - ./src:/var/www/html
+      - ./docker/php/conf.d/opcache-dev.ini:/usr/local/etc/php/conf.d/opcache.ini
     depends_on:
       - db
     networks:
@@ -15,8 +16,6 @@ services:
   nginx:
     image: nginx:stable
     container_name: vea_econmodels_nginx
-    ports:
-      - "80:80"
     volumes:
       - ./src:/var/www/html:ro
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro

@@ -1,20 +1,22 @@
 FROM php:8.3-fpm
 
-# Instalē sistēmas atkarības un PHP paplašinājumus
+# System dependencies
 RUN apt-get update && apt-get install -y \
-    git unzip zip libpq-dev libonig-dev libxml2-dev curl \
-    && docker-php-ext-install pdo pdo_mysql
+    git unzip zip curl \
+    libonig-dev libxml2-dev \
+    && docker-php-ext-install pdo pdo_mysql \
+    && rm -rf /var/lib/apt/lists/*
 
-# Instalē Composer
+# Install Composer (for artisan, not installs)
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Darba direktorija konteinerā
+# PHP production settings. Default: prod
+COPY docker/php/conf.d/opcache-prod.ini /usr/local/etc/php/conf.d/opcache.ini
+
+# Work directory
 WORKDIR /var/www/html
 
-# Nokopē Laravel failus (ja tie jau ir build brīdī)
+# Copy app code
 COPY ./src ./
-
-# Palaid composer install, ja nepieciešams
-RUN composer install --no-dev --optimize-autoloader || true
 
 CMD ["php-fpm"]
