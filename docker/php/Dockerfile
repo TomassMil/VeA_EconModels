@@ -16,7 +16,13 @@ COPY docker/php/conf.d/opcache-prod.ini /usr/local/etc/php/conf.d/opcache.ini
 # Work directory
 WORKDIR /var/www/html
 
+# Copy entrypoint script
+COPY docker/php/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 # Copy app code
 COPY ./src ./
 
+# Set entrypoint
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["php-fpm"]

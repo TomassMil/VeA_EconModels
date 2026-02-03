@@ -2,3 +2,9 @@
 /src/node_modules
 /src/.env
 /docker/db_data
+
+# SSL certificates
+ssl/
+*.pem
+*.key
+*.crt
