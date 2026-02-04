@@ -114,7 +114,7 @@
                     <div class="flex flex-col justify-start space-y-3" style="height: 800px; padding-top: 20px;">
                         <!-- 1.1 - 1.4 -->
                         <a
-                            href="#"
+                            href="{{ route('topic.show', '1-1-regularas') }}"
                             class="tree-node bg-blue-50 border border-blue-300 rounded-lg px-4 py-3 shadow-sm hover:bg-blue-100 block"
                             data-node="sub-1-1"
                             data-type="subcategory"
@@ -126,7 +126,7 @@
                         </a>
 
                         <a
-                            href="#"
+                            href="{{ route('topic.show', '1-2-stohastiskas') }}"
                             class="tree-node bg-blue-50 border border-blue-300 rounded-lg px-4 py-3 shadow-sm hover:bg-blue-100 block"
                             data-node="sub-1-2"
                             data-type="subcategory"
@@ -138,7 +138,7 @@
                         </a>
 
                         <a
-                            href="#"
+                            href="{{ route('topic.show', '1-3-haotiskas') }}"
                             class="tree-node bg-blue-50 border border-blue-300 rounded-lg px-4 py-3 shadow-sm hover:bg-blue-100 block"
                             data-node="sub-1-3"
                             data-type="subcategory"
@@ -150,7 +150,7 @@
                         </a>
 
                         <a
-                            href="#"
+                            href="{{ route('topic.show', '1-4-naudas-piedavajums') }}"
                             class="tree-node bg-blue-50 border border-blue-300 rounded-lg px-4 py-3 shadow-sm hover:bg-blue-100 block"
                             data-node="sub-1-4"
                             data-type="subcategory"
@@ -164,7 +164,7 @@
 
                         <!-- 2.1 - 2.3 -->
                         <a
-                            href="#"
+                            href="{{ route('topic.show', '2-1-trend-linija') }}"
                             class="tree-node bg-green-50 border border-green-300 rounded-lg px-4 py-3 shadow-sm hover:bg-green-100 block"
                             data-node="sub-2-1"
                             data-type="subcategory"
@@ -176,7 +176,7 @@
                         </a>
 
                         <a
-                            href="#"
+                            href="{{ route('topic.show', '2-2-hp-modelis') }}"
                             class="tree-node bg-green-50 border border-green-300 rounded-lg px-4 py-3 shadow-sm hover:bg-green-100 block"
                             data-node="sub-2-2"
                             data-type="subcategory"
@@ -188,7 +188,7 @@
                         </a>
 
                         <a
-                            href="#"
+                            href="{{ route('topic.show', '2-3-ssa') }}"
                             class="tree-node bg-green-50 border border-green-300 rounded-lg px-4 py-3 shadow-sm hover:bg-green-100 block"
                             data-node="sub-2-3"
                             data-type="subcategory"
@@ -201,7 +201,7 @@
 
                         <!-- 3.1 - 3.4 -->
                         <a
-                            href="#"
+                            href="{{ route('topic.show', '3-1-keynes') }}"
                             class="tree-node bg-purple-50 border border-purple-300 rounded-lg px-4 py-3 shadow-sm hover:bg-purple-100 block"
                             data-node="sub-3-1"
                             data-type="subcategory"
@@ -213,7 +213,7 @@
                         </a>
 
                         <a
-                            href="#"
+                            href="{{ route('topic.show', '3-2-is-lm') }}"
                             class="tree-node bg-purple-50 border border-purple-300 rounded-lg px-4 py-3 shadow-sm hover:bg-purple-100 block"
                             data-node="sub-3-2"
                             data-type="subcategory"
@@ -225,7 +225,7 @@
                         </a>
 
                         <a
-                            href="#"
+                            href="{{ route('topic.show', '3-3-ret') }}"
                             class="tree-node bg-purple-50 border border-purple-300 rounded-lg px-4 py-3 shadow-sm hover:bg-purple-100 block"
                             data-node="sub-3-3"
                             data-type="subcategory"
@@ -237,7 +237,7 @@
                         </a>
 
                         <a
-                            href="#"
+                            href="{{ route('topic.show', '3-4-dsge-is') }}"
                             class="tree-node bg-purple-50 border border-purple-300 rounded-lg px-4 py-3 shadow-sm hover:bg-purple-100 block"
                             data-node="sub-3-4"
                             data-type="subcategory"
@@ -250,7 +250,7 @@
 
                         <!-- 4.1 Placeholder -->
                         <a
-                            href="#"
+                            href="{{ route('topic.show', '4-1-placeholder') }}"
                             class="tree-node bg-orange-50 border border-orange-300 rounded-lg px-4 py-3 shadow-sm hover:bg-orange-100 block"
                             data-node="sub-4-1"
                             data-type="subcategory"

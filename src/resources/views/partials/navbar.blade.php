@@ -13,18 +13,16 @@
             
             <!-- Navigation Links -->
             <div class="hidden md:flex space-x-8">
-                <a href="/" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
+                <a href="{{ url('/') }}" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
                     Sākums
                 </a>
-                <a href="#" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
+                <a href="{{ route('models.index') }}" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
                     Modeļi
                 </a>
-                <a href="#" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
+                <a href="{{ route('about') }}" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
                     Par projektu
                 </a>
-                <a href="#" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
-                    Kontakti
-                </a>
+                <!-- Kontakti removed -->
             </div>
             
             <!-- Mobile menu button -->
