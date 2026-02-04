@@ -6,8 +6,7 @@
     <title>VeA EconModels</title>
 
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="alternate icon" href="/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
 
     <script src="https://cdn.tailwindcss.com"></script>
     

@@ -5,9 +5,9 @@
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-start justify-between gap-6 flex-wrap mb-8">
             <div>
-                <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">ModeÄ¼i</h1>
+                <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">Modeļi</h1>
                 <p class="text-gray-600 mt-2">
-                    IzvÄ“lies modeli, lai atvÄ“rtu tÄ“mas lapu.
+                    Izvēlies modeli, lai atvērtu tēmas lapu.
                 </p>
             </div>
         </div>

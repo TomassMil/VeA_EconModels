@@ -6,7 +6,7 @@
         <!-- Header with Search -->
         <div class="text-center mb-8">
             <h1 class="text-4xl font-bold text-gray-900 mb-4">
-                Ekonomikas Modeļu Karta
+                Ekonomikas Modeļu Informācijas Sistēma
             </h1>
             <p class="text-lg text-gray-600 mb-6">
                 Interaktīva vizualizācija ekonomikas modeļiem un to savstarpējām sakarībām
@@ -58,8 +58,9 @@
                     <!-- Level 2: Categories -->
                     <div class="flex flex-col justify-center space-y-20" style="height: 800px;">
                         <!-- 1. Laika rindas -->
-                        <div
-                            class="tree-node bg-white border-2 border-blue-400 rounded-lg px-6 py-4 shadow-md hover:border-blue-600"
+                        <a
+                            href="{{ route('category.show', 'laika-rindas') }}"
+                            class="tree-node bg-white border-2 border-blue-400 rounded-lg px-6 py-4 shadow-md hover:border-blue-600 block"
                             data-node="cat-1"
                             data-type="category"
                             data-parent="root"
@@ -68,11 +69,12 @@
                         >
                             <h3 class="font-bold text-gray-900">1. Laika rindas</h3>
                             <p class="text-sm text-gray-600 mt-1">Time Series Analysis</p>
-                        </div>
+                        </a>
 
                         <!-- 2. Laika rindu prognozēšana -->
-                        <div
-                            class="tree-node bg-white border-2 border-green-400 rounded-lg px-6 py-4 shadow-md hover:border-green-600"
+                        <a
+                            href="{{ route('category.show', 'laika-rindu-prognozesana') }}"
+                            class="tree-node bg-white border-2 border-green-400 rounded-lg px-6 py-4 shadow-md hover:border-green-600 block"
                             data-node="cat-2"
                             data-type="category"
                             data-parent="root"
@@ -81,11 +83,12 @@
                         >
                             <h3 class="font-bold text-gray-900">2. Laika rindu prognozēšana</h3>
                             <p class="text-sm text-gray-600 mt-1">Time Series Forecasting</p>
-                        </div>
+                        </a>
 
                         <!-- 3. Makroekonomika -->
-                        <div
-                            class="tree-node bg-white border-2 border-purple-400 rounded-lg px-6 py-4 shadow-md hover:border-purple-600"
+                        <a
+                            href="{{ route('category.show', 'makroekonomika') }}"
+                            class="tree-node bg-white border-2 border-purple-400 rounded-lg px-6 py-4 shadow-md hover:border-purple-600 block"
                             data-node="cat-3"
                             data-type="category"
                             data-parent="root"
@@ -94,11 +97,12 @@
                         >
                             <h3 class="font-bold text-gray-900">3. Makroekonomika</h3>
                             <p class="text-sm text-gray-600 mt-1">Macroeconomics</p>
-                        </div>
+                        </a>
 
                         <!-- 4. Ekonomikas izaugsme -->
-                        <div
-                            class="tree-node bg-white border-2 border-orange-400 rounded-lg px-6 py-4 shadow-md hover:border-orange-600"
+                        <a
+                            href="{{ route('category.show', 'ekonomikas-izaugsme') }}"
+                            class="tree-node bg-white border-2 border-orange-400 rounded-lg px-6 py-4 shadow-md hover:border-orange-600 block"
                             data-node="cat-4"
                             data-type="category"
                             data-parent="root"
@@ -107,7 +111,7 @@
                         >
                             <h3 class="font-bold text-gray-900">4. Ekonomikas izaugsme</h3>
                             <p class="text-sm text-gray-600 mt-1">Economic Growth</p>
-                        </div>
+                        </a>
                     </div>
 
                     <!-- Level 3: Subcategories -->
@@ -156,10 +160,10 @@
                             data-type="subcategory"
                             data-parent="cat-1"
                             data-color="#60a5fa"
-                            data-search="1.4 P = d*R + y*H + B*s d + B + y = 1"
+                            data-search="1.4 P = α*R + γ*H + β*S α + β + γ = 1"
                         >
-                            <span class="text-sm font-semibold text-gray-800">1.4. P = d*R + y*H + B*s</span>
-                            <span class="text-xs text-gray-600 block mt-1">d + B + y = 1</span>
+                            <span class="text-sm font-semibold text-gray-800">1.4. P = α*R + γ*H + β*S</span>
+                            <span class="text-xs text-gray-600 block mt-1">α + β + γ = 1</span>
                         </a>
 
                         <!-- 2.1 - 2.3 -->

@@ -16,16 +16,16 @@
                 <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="md:col-span-2">
                         <div class="rounded-xl border border-slate-200 bg-white/80 p-6 min-h-[220px]">
-                            <!-- Aprakstu pievienosi Å¡eit -->
+                            <!-- Aprakstu pievienosi šeit -->
                         </div>
                     </div>
 
                     <div class="space-y-4">
                         <div class="rounded-xl border border-slate-200 bg-white/80 p-6 min-h-[100px]">
-                            <!-- Galvenie mÄ“rÄ·i / kopsavilkums -->
+                            <!-- Galvenie mērķi / kopsavilkums -->
                         </div>
                         <div class="rounded-xl border border-slate-200 bg-white/80 p-6 min-h-[100px]">
-                            <!-- Avoti, rÄ«ki vai piezÄ«mes -->
+                            <!-- Avoti, rīki vai piezīmes -->
                         </div>
                     </div>
                 </div>

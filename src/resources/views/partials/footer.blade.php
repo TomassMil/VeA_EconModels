@@ -23,13 +23,7 @@
                 </ul>
             </div>
             
-            <!-- KontaktinformÄcija noÅemta pÄ“c pieprasÄ«juma -->
-        </div>
-        
-        <div class="mt-8 pt-8 border-t border-gray-200">
-            <p class="text-center text-gray-500 text-sm">
-                &copy; {{ date('Y') }} VeA EconModels. Visas tiesības aizsargātas.
-            </p>
+            <!-- Kontaktinformācija noņemta pēc pieprasījuma -->
         </div>
     </div>
 </footer>
