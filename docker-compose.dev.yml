@@ -4,3 +4,8 @@ services:
       - "8080:80"
     volumes:
       - ./docker/nginx/default.dev.conf:/etc/nginx/conf.d/default.conf:ro
+  db:
+    volumes:
+      - db_data:/var/lib/mysql
+      - /home/toms/data/VeA_data:/imports:ro
+      - /home/toms/data/VeA_data:/var/lib/mysql-files/imports:rw
