@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\InstrumentController;
 use Illuminate\Support\Facades\Route;
 
 $topics = [
@@ -63,6 +64,10 @@ $categories = [
 Route::get('/', function () {
     return view('home');
 });
+
+Route::get('/instrumenti', [InstrumentController::class, 'index'])->name('instruments.index');
+Route::get('/instrumenti/search', [InstrumentController::class, 'search'])->name('instruments.search');
+Route::get('/instrument/{instrument}', [InstrumentController::class, 'show'])->name('instruments.show');
 
 Route::get('/models', function () use ($topics) {
     return view('models', [

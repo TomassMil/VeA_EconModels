@@ -9,3 +9,10 @@ services:
       - db_data:/var/lib/mysql
       - /home/toms/data/VeA_data:/imports:ro
       - /home/toms/data/VeA_data:/var/lib/mysql-files/imports:rw
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: econmodels
+      MYSQL_USER: laravel
+      MYSQL_PASSWORD: laravelpass
+    ports:
+      - "3307:3306"

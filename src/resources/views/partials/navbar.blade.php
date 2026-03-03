@@ -19,6 +19,9 @@
                 <a href="{{ route('models.index') }}" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
                     Modeļi
                 </a>
+                <a href="{{ route('instruments.index') }}" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
+                    Instrumenti
+                </a>
                 <a href="{{ route('about') }}" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
                     Par projektu
                 </a>
