@@ -90,9 +90,23 @@ class InstrumentController extends Controller
             ->get()
             ->values();
 
+        $availableFundamentalYears = $priceSeries
+            ->pluck('date')
+            ->map(function ($date) {
+                $year = substr((string) $date, 0, 4);
+
+                return strlen($year) === 4 && ctype_digit($year) ? $year : null;
+            })
+            ->filter()
+            ->unique()
+            ->sortDesc()
+            ->values();
+
         return view('instruments.show', [
             'instrument' => $instrument,
             'priceSeries' => $priceSeries,
+            'availableFundamentalYears' => $availableFundamentalYears,
+            'fundamentalData' => [],
         ]);
     }
 

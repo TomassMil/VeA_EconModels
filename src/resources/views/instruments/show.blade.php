@@ -88,20 +88,39 @@
         </section>
 
         <section class="mt-8 rounded-xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
-            <h2 class="text-xl font-semibold text-gray-900">Fundamentālie dati</h2>
-            <p class="text-gray-600 mt-2">Vieta turpmākai fundamentālo datu izvēlei un vizualizācijai.</p>
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 lg:gap-6 min-h-[420px]">
+                <aside class="md:col-span-1 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <div id="fundamentals-year-list" class="space-y-2"></div>
+                </aside>
 
-            <div class="mt-4">
-                <label for="fundamental-data-select" class="block text-sm font-medium text-gray-700">
-                    Datu grupa
-                </label>
-                <select
-                    id="fundamental-data-select"
-                    class="mt-2 block w-full rounded-lg border border-gray-300 px-4 py-3 bg-gray-50 text-gray-500"
-                    disabled
-                >
-                    <option>Pieejams nākamajā iterācijā</option>
-                </select>
+                <div class="md:col-span-4 rounded-lg border border-gray-200 bg-white p-4 sm:p-5 flex flex-col">
+                    <div id="fundamentals-statement-tabs" class="inline-flex flex-wrap rounded-lg border border-gray-300 overflow-hidden self-start">
+                        <button
+                            type="button"
+                            data-statement="balance_sheet"
+                            class="fundamentals-statement-btn px-4 py-2 text-sm font-medium text-gray-700 bg-white border-r border-gray-300"
+                        >
+                            Balance sheet
+                        </button>
+                        <button
+                            type="button"
+                            data-statement="cash_flow_statement"
+                            class="fundamentals-statement-btn px-4 py-2 text-sm font-medium text-gray-700 bg-white border-r border-gray-300"
+                        >
+                            Cash Flow Statement
+                        </button>
+                        <button
+                            type="button"
+                            data-statement="income_statement"
+                            class="fundamentals-statement-btn px-4 py-2 text-sm font-medium text-gray-700 bg-white"
+                        >
+                            Income Statement (P&amp;L)
+                        </button>
+                    </div>
+
+                    <p id="fundamentals-period-title" class="mt-3 text-sm font-medium text-gray-600"></p>
+                    <div id="fundamentals-content" class="mt-4 grow overflow-auto"></div>
+                </div>
             </div>
         </section>
     </div>
@@ -856,4 +875,439 @@
         })();
     </script>
 @endif
+
+<script>
+    (function () {
+        const yearList = document.getElementById('fundamentals-year-list');
+        const statementTabs = document.getElementById('fundamentals-statement-tabs');
+        const periodTitle = document.getElementById('fundamentals-period-title');
+        const content = document.getElementById('fundamentals-content');
+
+        if (!yearList || !statementTabs || !periodTitle || !content) {
+            return;
+        }
+
+        const fallbackYearsRaw = @json($availableFundamentalYears ?? []);
+        const fallbackYears = Array.isArray(fallbackYearsRaw)
+            ? fallbackYearsRaw
+            : [];
+        const rawFundamentals = @json($fundamentalData ?? []);
+        const statementOrder = ['balance_sheet', 'cash_flow_statement', 'income_statement'];
+        const statementLabels = {
+            balance_sheet: 'Balance sheet',
+            cash_flow_statement: 'Cash Flow Statement',
+            income_statement: 'Income Statement (P&L)',
+        };
+        let selectedStatement = 'balance_sheet';
+        let selectedPeriod = 'annual';
+        let fundamentalsByYear = normalizeFundamentals(rawFundamentals, fallbackYears);
+        let years = sortYearsDesc(Object.keys(fundamentalsByYear));
+        let selectedYear = years[0] || null;
+
+        function createEmptyStatementSet() {
+            return {
+                balance_sheet: {},
+                cash_flow_statement: {},
+                income_statement: {},
+            };
+        }
+
+        function ensureYear(store, year) {
+            if (!store[year]) {
+                store[year] = {
+                    annual: createEmptyStatementSet(),
+                    quarters: {},
+                };
+            }
+            return store[year];
+        }
+
+        function normalizeStatementKey(key) {
+            const value = String(key || '')
+                .trim()
+                .toLowerCase()
+                .replace(/[\s-]+/g, '_');
+
+            if (value === 'cash_flow' || value === 'cashflow' || value === 'cash_flow_statement') {
+                return 'cash_flow_statement';
+            }
+
+            if (value === 'income_statement' || value === 'income' || value === 'income_statement_(p&l)' || value === 'p&l' || value === 'pl') {
+                return 'income_statement';
+            }
+
+            return value === 'balance_sheet' ? 'balance_sheet' : null;
+        }
+
+        function normalizeQuarterKey(value) {
+            const raw = String(value || '')
+                .trim()
+                .toUpperCase()
+                .replace(/\s+/g, '');
+
+            if (raw === '' || raw === 'ANNUAL' || raw === 'FY' || raw === 'YEAR') {
+                return 'annual';
+            }
+
+            const digitMatch = raw.match(/Q?([1-4])/);
+            if (!digitMatch) {
+                return 'annual';
+            }
+
+            return `Q${digitMatch[1]}`;
+        }
+
+        function normalizeStatementPayload(payload) {
+            return payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+        }
+
+        function normalizeFundamentals(raw, yearsFallback) {
+            const normalized = {};
+
+            yearsFallback.forEach((year) => {
+                const normalizedYear = String(year || '').trim();
+                if (/^\d{4}$/.test(normalizedYear)) {
+                    ensureYear(normalized, normalizedYear);
+                }
+            });
+
+            if (!raw || typeof raw !== 'object') {
+                return normalized;
+            }
+
+            if (Array.isArray(raw)) {
+                raw.forEach((row) => {
+                    if (!row || typeof row !== 'object') {
+                        return;
+                    }
+
+                    const year = String(row.year || '').trim();
+                    if (!/^\d{4}$/.test(year)) {
+                        return;
+                    }
+
+                    const statementKey = normalizeStatementKey(row.statement_type || row.statement);
+                    if (!statementKey) {
+                        return;
+                    }
+
+                    const periodKey = normalizeQuarterKey(row.quarter || row.period);
+                    const payload = normalizeStatementPayload(row.data || row.values || row.metrics || row.payload);
+                    const yearNode = ensureYear(normalized, year);
+
+                    if (periodKey === 'annual') {
+                        yearNode.annual[statementKey] = payload;
+                        return;
+                    }
+
+                    if (!yearNode.quarters[periodKey]) {
+                        yearNode.quarters[periodKey] = createEmptyStatementSet();
+                    }
+                    yearNode.quarters[periodKey][statementKey] = payload;
+                });
+
+                return normalized;
+            }
+
+            Object.entries(raw).forEach(([year, yearValue]) => {
+                const normalizedYear = String(year || '').trim();
+                if (!/^\d{4}$/.test(normalizedYear)) {
+                    return;
+                }
+
+                const yearNode = ensureYear(normalized, normalizedYear);
+                if (!yearValue || typeof yearValue !== 'object') {
+                    return;
+                }
+
+                const annualNode = yearValue.annual && typeof yearValue.annual === 'object'
+                    ? yearValue.annual
+                    : yearValue;
+
+                statementOrder.forEach((statementKey) => {
+                    yearNode.annual[statementKey] = normalizeStatementPayload(annualNode[statementKey]);
+                });
+
+                const quarterNode = yearValue.quarters && typeof yearValue.quarters === 'object'
+                    ? yearValue.quarters
+                    : {};
+
+                Object.entries(quarterNode).forEach(([quarter, quarterValue]) => {
+                    const normalizedQuarter = normalizeQuarterKey(quarter);
+                    if (normalizedQuarter === 'annual') {
+                        return;
+                    }
+
+                    if (!yearNode.quarters[normalizedQuarter]) {
+                        yearNode.quarters[normalizedQuarter] = createEmptyStatementSet();
+                    }
+
+                    if (!quarterValue || typeof quarterValue !== 'object') {
+                        return;
+                    }
+
+                    statementOrder.forEach((statementKey) => {
+                        yearNode.quarters[normalizedQuarter][statementKey] = normalizeStatementPayload(quarterValue[statementKey]);
+                    });
+                });
+            });
+
+            return normalized;
+        }
+
+        function sortYearsDesc(yearKeys) {
+            return yearKeys
+                .filter((year) => /^\d{4}$/.test(year))
+                .sort((left, right) => Number(right) - Number(left));
+        }
+
+        function getQuarterKeys(year) {
+            const quarterMap = fundamentalsByYear[year]?.quarters || {};
+            return Object.keys(quarterMap).sort((left, right) => Number(left.slice(1)) - Number(right.slice(1)));
+        }
+
+        function formatQuarterLabel(quarter) {
+            const labels = {
+                Q1: '1st quarter',
+                Q2: '2nd quarter',
+                Q3: '3rd quarter',
+                Q4: '4th quarter',
+            };
+            return labels[quarter] || quarter;
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function parseMaybeNumber(value) {
+            if (typeof value === 'number' && Number.isFinite(value)) {
+                return value;
+            }
+
+            if (typeof value === 'string' && value.trim() !== '') {
+                const numberValue = Number(value.replace(/,/g, ''));
+                if (Number.isFinite(numberValue)) {
+                    return numberValue;
+                }
+            }
+
+            return null;
+        }
+
+        function formatValue(value) {
+            if (value === null || typeof value === 'undefined') {
+                return '—';
+            }
+
+            const numericValue = parseMaybeNumber(value);
+            if (numericValue !== null) {
+                const absValue = Math.abs(numericValue);
+                const decimals = absValue >= 1 ? 2 : 4;
+                return new Intl.NumberFormat('en-US', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: decimals,
+                }).format(numericValue);
+            }
+
+            if (typeof value === 'boolean') {
+                return value ? 'true' : 'false';
+            }
+
+            return String(value);
+        }
+
+        function flattenRows(source, prefix) {
+            if (!source || typeof source !== 'object' || Array.isArray(source)) {
+                return [];
+            }
+
+            let rows = [];
+            Object.entries(source).forEach(([key, value]) => {
+                const label = prefix ? `${prefix} / ${key}` : key;
+                if (value && typeof value === 'object' && !Array.isArray(value)) {
+                    rows = rows.concat(flattenRows(value, label));
+                    return;
+                }
+
+                rows.push([label, value]);
+            });
+
+            return rows;
+        }
+
+        function renderYearList() {
+            if (years.length === 0) {
+                yearList.innerHTML = '<p class="text-sm text-gray-500 px-2 py-1">No years available</p>';
+                return;
+            }
+
+            const html = years.map((year) => {
+                const isActiveYear = year === selectedYear;
+                const quarters = getQuarterKeys(year);
+                const yearClass = isActiveYear
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300 hover:text-blue-700';
+                const quarterHtml = isActiveYear && quarters.length > 0
+                    ? `
+                        <div class="ml-3 mt-2 border-l border-gray-300 pl-2">
+                            <label for="quarter-select-${escapeHtml(year)}" class="block text-[11px] font-medium text-gray-500 mb-1">
+                                Quarter (10-Q)
+                            </label>
+                            <select
+                                id="quarter-select-${escapeHtml(year)}"
+                                data-role="quarter-select"
+                                data-year="${escapeHtml(year)}"
+                                class="block w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none"
+                            >
+                                <option value="annual" ${selectedPeriod === 'annual' ? 'selected' : ''}>Annual</option>
+                                ${quarters.map((quarter) => `
+                                    <option value="${escapeHtml(quarter)}" ${selectedPeriod === quarter ? 'selected' : ''}>
+                                        ${escapeHtml(formatQuarterLabel(quarter))}
+                                    </option>
+                                `).join('')}
+                            </select>
+                        </div>
+                    `
+                    : '';
+
+                return `
+                    <div>
+                        <button
+                            type="button"
+                            data-role="year"
+                            data-year="${escapeHtml(year)}"
+                            class="block w-full rounded-md border px-3 py-2 text-left text-sm font-semibold transition-colors ${yearClass}"
+                        >
+                            ${escapeHtml(year)}
+                        </button>
+                        ${quarterHtml}
+                    </div>
+                `;
+            }).join('');
+
+            yearList.innerHTML = html;
+        }
+
+        function renderStatementTabs() {
+            const buttons = Array.from(statementTabs.querySelectorAll('.fundamentals-statement-btn'));
+            buttons.forEach((button, index) => {
+                const isActive = button.dataset.statement === selectedStatement;
+                button.classList.toggle('bg-slate-700', isActive);
+                button.classList.toggle('text-white', isActive);
+                button.classList.toggle('bg-white', !isActive);
+                button.classList.toggle('text-gray-700', !isActive);
+                button.classList.toggle('border-r', index < buttons.length - 1);
+                button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
+        }
+
+        function renderContent() {
+            if (!selectedYear || !fundamentalsByYear[selectedYear]) {
+                periodTitle.textContent = '';
+                content.innerHTML = '<div class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-600">No fundamental data available for this instrument.</div>';
+                return;
+            }
+
+            const yearNode = fundamentalsByYear[selectedYear];
+            const periodLabel = selectedPeriod === 'annual'
+                ? `${selectedYear} - Annual`
+                : `${selectedYear} - ${formatQuarterLabel(selectedPeriod)}`;
+            periodTitle.textContent = periodLabel;
+
+            const source = selectedPeriod === 'annual'
+                ? yearNode.annual
+                : (yearNode.quarters[selectedPeriod] || createEmptyStatementSet());
+            const statementData = source[selectedStatement] || {};
+            const rows = flattenRows(statementData, '');
+
+            if (rows.length === 0) {
+                content.innerHTML = `
+                    <div class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-10 text-center text-sm text-gray-600">
+                        No ${escapeHtml(statementLabels[selectedStatement] || selectedStatement)} data for the selected period.
+                    </div>
+                `;
+                return;
+            }
+
+            content.innerHTML = `
+                <div class="overflow-hidden rounded-lg border border-gray-200">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-4 py-3 text-left font-semibold text-gray-700">Metric</th>
+                                <th scope="col" class="px-4 py-3 text-right font-semibold text-gray-700">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 bg-white">
+                            ${rows.map(([label, value]) => `
+                                <tr>
+                                    <td class="px-4 py-2.5 text-gray-700">${escapeHtml(label)}</td>
+                                    <td class="px-4 py-2.5 text-right tabular-nums text-gray-900">${escapeHtml(formatValue(value))}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        yearList.addEventListener('click', function (event) {
+            const button = event.target.closest('button[data-role]');
+            if (!button) {
+                return;
+            }
+
+            if (button.dataset.role === 'year') {
+                selectedYear = button.dataset.year || null;
+                selectedPeriod = 'annual';
+                renderYearList();
+                renderContent();
+                return;
+            }
+
+        });
+
+        yearList.addEventListener('change', function (event) {
+            const select = event.target.closest('select[data-role="quarter-select"]');
+            if (!select) {
+                return;
+            }
+
+            selectedYear = select.dataset.year || null;
+            selectedPeriod = select.value || 'annual';
+            renderYearList();
+            renderContent();
+        });
+
+        statementTabs.addEventListener('click', function (event) {
+            const button = event.target.closest('button[data-statement]');
+            if (!button) {
+                return;
+            }
+
+            const nextStatement = normalizeStatementKey(button.dataset.statement);
+            if (!nextStatement) {
+                return;
+            }
+
+            selectedStatement = nextStatement;
+            renderStatementTabs();
+            renderContent();
+        });
+
+        if (selectedYear && !fundamentalsByYear[selectedYear]) {
+            selectedYear = years[0] || null;
+        }
+
+        renderYearList();
+        renderStatementTabs();
+        renderContent();
+    })();
+</script>
 @endsection
