@@ -50,34 +50,30 @@ class InstrumentPagesTest extends TestCase
         DB::table('prices_daily')->insert([
             [
                 'instrument_id' => $instrumentId,
-                'date' => '2026-01-02',
+                'time' => '2026-01-02',
                 'open' => 100,
                 'low' => 99,
                 'high' => 101,
                 'close' => 100.50,
                 'adj_close' => 100.50,
-                'dividend' => 0,
                 'volume' => 1000000,
-                'shares_outstanding' => 1000000000,
             ],
             [
                 'instrument_id' => $instrumentId,
-                'date' => '2026-01-03',
+                'time' => '2026-01-03',
                 'open' => 101,
                 'low' => 100,
                 'high' => 103,
                 'close' => 102.25,
                 'adj_close' => 102.25,
-                'dividend' => 0,
                 'volume' => 1200000,
-                'shares_outstanding' => 1000000000,
             ],
         ]);
 
         $response = $this->get(route('instruments.show', ['instrument' => $instrumentId]));
 
         $response->assertOk();
-        $response->assertSee('Fundamentālie dati');
+        $response->assertSee('fundamentals-year-list', false);
         $response->assertSee('price-chart');
         $response->assertSee('chart-mode-close');
         $response->assertSee('chart-mode-ohlc');

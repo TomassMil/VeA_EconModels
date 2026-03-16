@@ -10,6 +10,7 @@ services:
       - ./docker/php/conf.d/opcache-dev.ini:/usr/local/etc/php/conf.d/opcache.ini
     depends_on:
       - db
+      - redis
     networks:
       - vea_net
 
@@ -25,14 +26,21 @@ services:
       - vea_net
 
   db:
-    image: mysql:8.0
+    image: timescale/timescaledb:latest-pg16
     container_name: vea_econmodels_db
     restart: always
     networks:
       - vea_net
 
+  redis:
+    image: redis:7-alpine
+    container_name: vea_econmodels_redis
+    restart: always
+    networks:
+      - vea_net
+
 volumes:
-  db_data:
+  pg_data:
 
 networks:
   vea_net:

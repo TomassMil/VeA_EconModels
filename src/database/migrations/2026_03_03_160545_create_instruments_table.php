@@ -14,9 +14,10 @@ return new class extends Migration
             $table->unsignedBigInteger('cik')->nullable()->index();
             $table->unsignedInteger('simfin_id')->nullable()->unique();
             $table->string('exchange', 16)->nullable();
-
-            $table->unique(['ticker', 'exchange']); // safer long-term
+            $table->string('company_name')->nullable()->index();
             $table->timestamps();
+
+            $table->unique(['ticker', 'exchange']);
         });
     }
 

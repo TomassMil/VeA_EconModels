@@ -2,6 +2,7 @@
 /src/node_modules
 /src/.env
 /docker/db_data
+PROJECT_CONTEXT.md
 
 # SSL certificates
 ssl/

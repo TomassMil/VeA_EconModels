@@ -27,13 +27,17 @@ done
 
 echo "✓ Database connected!"
 
-# Run migrations with verbose output
-echo "Running migrations..."
-if php artisan migrate --force --verbose; then
-    echo "✓ Migrations completed successfully"
+# Run migrations (skip if SKIP_MIGRATIONS is set)
+if [ "$SKIP_MIGRATIONS" = "true" ]; then
+    echo "⏭ Skipping migrations (SKIP_MIGRATIONS=true)"
 else
-    echo "ERROR: Migration failed! Check the error above."
-    exit 1
+    echo "Running migrations..."
+    if php artisan migrate --force --verbose; then
+        echo "✓ Migrations completed successfully"
+    else
+        echo "ERROR: Migration failed! Check the error above."
+        exit 1
+    fi
 fi
 
 # Optional: Cache optimization for production

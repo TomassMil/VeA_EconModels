@@ -4,9 +4,20 @@ services:
           - "80:80"
           - "443:443"
         volumes:
-          - /etc/letsencrypt/live/econmodels.venta.lv/fullchain.pem:/etc/ssl/certs/fullchain.pem:ro
-          - /etc/letsencrypt/live/econmodels.venta.lv/privkey.pem:/etc/ssl/private/privkey.pem:ro
-
+        - /etc/letsencrypt/live/econmodels.venta.lv/fullchain.pem:/etc/ssl/certs/fullchain.pem:ro
+        - /etc/letsencrypt/live/econmodels.venta.lv/privkey.pem:/etc/ssl/private/privkey.pem:ro
+        
     db:
+        volumes:
+          - pg_data:/var/lib/postgresql/data
+        environment:
+          POSTGRES_DB: econmodels
+          POSTGRES_USER: laravel
+          POSTGRES_PASSWORD: ${DB_PASSWORD}
         ports:
-          - "127.0.0.1:3307:3306"
+          - "127.0.0.1:5433:5432"
+    
+      redis:
+        command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD}
+        ports:
+          - "127.0.0.1:6380:6379"
