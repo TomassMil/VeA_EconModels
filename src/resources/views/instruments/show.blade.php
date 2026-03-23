@@ -57,15 +57,8 @@
             </div>
 
             @if ($priceSeries->isNotEmpty())
-                <div id="chart-container" class="relative overflow-hidden border border-gray-100 rounded-lg cursor-none select-none">
-                    <div
-                        id="chart-hover-info"
-                        class="absolute left-3 top-2 z-10 text-xs text-gray-500 pointer-events-none font-medium tracking-wide"
-                    ></div>
-                    <div
-                        id="chart-controls"
-                        class="absolute right-3 top-2 z-10 flex items-center gap-2"
-                    >
+                <div class="flex gap-4 items-end mb-2">
+                    <div class="flex items-center justify-end gap-2" style="flex:3 1 0%">
                         <div id="chart-range-group" class="inline-flex rounded border border-gray-300 overflow-hidden bg-white">
                             <button type="button" class="chart-range-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-range="1m">1m</button>
                             <button type="button" class="chart-range-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-range="1y">1y</button>
@@ -78,7 +71,40 @@
                             <button type="button" class="px-2 py-1 text-[11px] font-medium bg-gray-100 text-gray-400 cursor-not-allowed" data-interval="1w" disabled title="1w coming soon">1w</button>
                         </div>
                     </div>
-                    <svg id="price-chart" class="h-[520px]"></svg>
+                    <div class="flex items-center justify-center" style="flex:1 1 0%">
+                        <div id="engel-days-group" class="inline-flex rounded border border-gray-300 overflow-hidden bg-white">
+                            <button type="button" class="engel-days-btn px-2 py-1 text-[11px] font-medium bg-slate-700 text-white border-r border-gray-300" data-days="30">30d</button>
+                            <button type="button" class="engel-days-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-days="60">60d</button>
+                            <button type="button" class="engel-days-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-days="90">90d</button>
+                            <button type="button" class="engel-days-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-days="180">180d</button>
+                            <button type="button" class="engel-days-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-days="365">1y</button>
+                            <button type="button" class="engel-days-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700" data-days="730">2y</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-4 items-start">
+                    <div id="chart-container" class="min-w-0 relative overflow-hidden rounded-lg cursor-none select-none" style="flex:3 1 0%">
+                        <div
+                            id="chart-hover-info"
+                            class="absolute left-3 top-2 z-10 text-xs text-gray-500 pointer-events-none font-medium tracking-wide"
+                        ></div>
+                        <svg id="price-chart" class="h-[520px]"></svg>
+                    </div>
+
+                    <div id="engel-triangle-container" class="min-w-0 flex flex-col" style="flex:1 1 0%">
+                        <div class="relative rounded-lg border border-gray-100 bg-white overflow-hidden flex items-center justify-center" style="aspect-ratio:1/1">
+                            <canvas id="engel-canvas" class="block"></canvas>
+                            <div id="engel-spinner" class="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-10 hidden">
+                                <svg class="animate-spin h-8 w-8 text-slate-400 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                                <span class="text-xs text-slate-400 font-medium">Computing...</span>
+                            </div>
+                            <div id="engel-tooltip" class="absolute z-20 hidden rounded bg-gray-900 px-2 py-1 text-[10px] text-white shadow-lg pointer-events-none whitespace-nowrap leading-relaxed"></div>
+                        </div>
+                    </div>
                 </div>
             @else
                 <div class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-10 text-center text-gray-600">
@@ -176,6 +202,7 @@
             let hoverIndex = null;
             let hoverClientX = null;
             let drawQueued = false;
+            let engelDays = 30;
 
             function toNumber(value) {
                 const number = Number(value);
@@ -247,9 +274,9 @@
 
                 const day = String(date.getUTCDate()).padStart(2, '0');
                 const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-                const year = String(date.getUTCFullYear()).slice(2);
+                const year = date.getUTCFullYear();
 
-                return `${day}.${month}.${year}`;
+                return `${day}/${month}/${year}`;
             }
 
             function formatMaybePrice(value) {
@@ -674,6 +701,42 @@
                 return markup;
             }
 
+            function renderEngelBracket(stepX, priceTop, volumeBottom, chartWidth) {
+                const n = parsedPoints.length;
+                if (engelDays <= 0 || n < 2) return '';
+
+                const bracketStart = Math.max(0, n - engelDays);
+                const bracketEnd = n - 1;
+
+                const x1 = xForIndex(bracketStart, stepX);
+                const x2 = xForIndex(bracketEnd, stepX);
+
+                // Only draw if at least partially visible
+                if (x2 < padding.left || x1 > chartWidth - padding.right) return '';
+
+                const clampedX1 = Math.max(x1, padding.left);
+                const clampedX2 = Math.min(x2, chartWidth - padding.right);
+                if (clampedX2 - clampedX1 < 2) return '';
+
+                const y = volumeBottom + 2;
+                const tickH = 6;
+                let markup = '';
+
+                // Shaded region behind the chart
+                markup += `<rect x="${clampedX1}" y="${priceTop}" width="${clampedX2 - clampedX1}" height="${volumeBottom - priceTop}" fill="#6366f1" opacity="0.04" />`;
+
+                // Bracket: |-----|
+                markup += `<line x1="${clampedX1}" y1="${y}" x2="${clampedX1}" y2="${y + tickH}" stroke="#6366f1" stroke-width="1.5" />`;
+                markup += `<line x1="${clampedX1}" y1="${y + tickH / 2}" x2="${clampedX2}" y2="${y + tickH / 2}" stroke="#6366f1" stroke-width="1.5" />`;
+                markup += `<line x1="${clampedX2}" y1="${y}" x2="${clampedX2}" y2="${y + tickH}" stroke="#6366f1" stroke-width="1.5" />`;
+
+                // Label
+                const midX = (clampedX1 + clampedX2) / 2;
+                markup += `<text x="${midX}" y="${y + tickH + 11}" text-anchor="middle" fill="#6366f1" font-size="10" font-weight="600">${engelDays}d</text>`;
+
+                return markup;
+            }
+
             function draw() {
                 const mode = currentMode;
                 const chartWidth = getContainerWidth();
@@ -722,10 +785,11 @@
                     ? renderOhlc(priceRange.min, priceRange.max, stepX, plotWidth, priceTop, priceBottom, first, last)
                     : renderClose(priceRange.min, priceRange.max, stepX, priceTop, priceBottom, first, last);
                 const cursorOverlay = renderCursorOverlay(stepX, first, last, priceRange.min, priceRange.max, priceTop, priceBottom, volumeBottom, chartWidth, mode);
+                const engelBracket = renderEngelBracket(stepX, priceTop, volumeBottom, chartWidth);
                 const infoIndex = Number.isInteger(hoverIndex) && hoverIndex >= first && hoverIndex <= last ? hoverIndex : last;
                 hoverInfo.textContent = formatHoverText(parsedPoints[infoIndex]);
 
-                svg.innerHTML = `${grid}${volumeBars}${series}${cursorOverlay}`;
+                svg.innerHTML = `${grid}${engelBracket}${volumeBars}${series}${cursorOverlay}`;
             }
 
             function zoomByWheel(event) {
@@ -871,8 +935,361 @@
             window.addEventListener('mouseup', onDragEnd);
             window.addEventListener('resize', scheduleDraw);
 
+            // Listen for engel triangle period changes
+            window.addEventListener('engel-period-changed', function (e) {
+                engelDays = e.detail.days || 30;
+                scheduleDraw();
+            });
+
             setMode('close');
             setRange(defaultRange);
+        })();
+    </script>
+
+    <script>
+        (function () {
+            const allPrices = @json($priceSeries);
+            const canvas = document.getElementById('engel-canvas');
+            const tooltipEl = document.getElementById('engel-tooltip');
+            const spinner = document.getElementById('engel-spinner');
+            const container = document.getElementById('engel-triangle-container');
+            const daysButtons = Array.from(document.querySelectorAll('.engel-days-btn'));
+            if (!canvas || !tooltipEl || !container || !Array.isArray(allPrices) || allPrices.length < 2) return;
+
+            const allParsed = allPrices.map(p => ({ date: p.time, close: parseFloat(p.close) }));
+            const dpr = window.devicePixelRatio || 1;
+            const ctx = canvas.getContext('2d');
+
+            let currentN = 30;
+            let prices = [];
+            let cachedMaxDiff = 0;
+            let drawAbortController = null;
+
+            // Zoom/pan state — viewport in cell coordinates
+            let vpX = 0, vpY = 0; // top-left cell (fractional)
+            let vpSize = 30;      // how many cells visible across the viewport
+            let isDragging = false, lastDragX = 0, lastDragY = 0;
+
+            function getContainerSize() {
+                const wrapper = canvas.parentElement;
+                return Math.floor(wrapper.clientWidth);
+            }
+
+            function clampViewport() {
+                const n = prices.length;
+                vpSize = Math.max(4, Math.min(vpSize, n));
+                vpX = Math.max(0, Math.min(vpX, n - vpSize));
+                vpY = Math.max(0, Math.min(vpY, n - vpSize));
+            }
+
+            function buildAndDraw(N) {
+                if (drawAbortController) drawAbortController.abort();
+
+                currentN = N;
+                prices = allParsed.slice(-N);
+                const n = prices.length;
+                if (n < 2) return;
+
+                // Reset viewport
+                vpX = 0; vpY = 0; vpSize = n;
+                cachedMaxDiff = computeMaxDiff(n);
+
+                drawEngel();
+
+                // Notify the price chart about the selected period
+                window.dispatchEvent(new CustomEvent('engel-period-changed', { detail: { days: n } }));
+            }
+
+            function drawEngel() {
+                if (drawAbortController) drawAbortController.abort();
+                const n = prices.length;
+                if (n < 2) return;
+
+                clampViewport();
+
+                const size = getContainerSize();
+                canvas.width = size * dpr;
+                canvas.height = size * dpr;
+                canvas.style.width = size + 'px';
+                canvas.style.height = size + 'px';
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+                const cellPx = size / vpSize;
+                const r0 = Math.floor(vpY);
+                const r1 = Math.min(n - 1, Math.ceil(vpY + vpSize));
+                const c0 = Math.floor(vpX);
+                const c1 = Math.min(n - 1, Math.ceil(vpX + vpSize));
+                const totalVisible = (r1 - r0 + 1) * (c1 - c0 + 1);
+                const CHUNK_THRESHOLD = 60000;
+
+                if (totalVisible > CHUNK_THRESHOLD) {
+                    spinner.classList.remove('hidden');
+                    drawEngelChunked(n, size, cellPx, r0, r1, c0, c1);
+                } else {
+                    spinner.classList.add('hidden');
+                    drawEngelImmediate(n, size, cellPx, r0, r1, c0, c1);
+                }
+            }
+
+            function drawEngelImmediate(n, size, cellPx, r0, r1, c0, c1) {
+                const drawGrid = cellPx >= 4;
+                const drawText = cellPx >= 28;
+                for (let row = r0; row <= r1; row++) {
+                    for (let col = c0; col <= c1; col++) {
+                        const x = (col - vpX) * cellPx;
+                        const y = (row - vpY) * cellPx;
+                        ctx.fillStyle = getCellColor(row, col, cachedMaxDiff);
+                        ctx.fillRect(x, y, cellPx, cellPx);
+                        if (drawGrid) {
+                            ctx.strokeStyle = '#e2e8f0';
+                            ctx.lineWidth = 0.5;
+                            ctx.strokeRect(x + 0.25, y + 0.25, cellPx - 0.5, cellPx - 0.5);
+                        }
+                        if (drawText && col >= row) {
+                            const val = col === row ? prices[row].close : prices[col].close - prices[row].close;
+                            const label = col === row ? '$' + val.toFixed(1) : (val >= 0 ? '+' : '') + val.toFixed(1);
+                            ctx.fillStyle = '#334155';
+                            ctx.font = `${Math.max(8, Math.min(cellPx * 0.28, 12))}px sans-serif`;
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(label, x + cellPx / 2, y + cellPx / 2);
+                        }
+                    }
+                }
+            }
+
+            function drawEngelChunked(n, size, cellPx, r0, r1, c0, c1) {
+                const controller = { aborted: false };
+                drawAbortController = { abort() { controller.aborted = true; } };
+
+                const usePixel = cellPx < 2;
+
+                if (usePixel) {
+                    const pxSize = Math.ceil(size * dpr);
+                    const imgData = ctx.createImageData(pxSize, pxSize);
+                    const data = imgData.data;
+                    const cellPxDpr = cellPx * dpr;
+                    let rowIdx = r0;
+                    const ROWS_PER_CHUNK = Math.max(1, Math.floor(40000 / (c1 - c0 + 1)));
+
+                    function chunk() {
+                        if (controller.aborted) return;
+                        const end = Math.min(rowIdx + ROWS_PER_CHUNK, r1 + 1);
+                        for (let row = rowIdx; row < end; row++) {
+                            const py0 = Math.max(0, Math.floor((row - vpY) * cellPxDpr));
+                            const py1 = Math.min(pxSize, Math.floor((row - vpY + 1) * cellPxDpr));
+                            for (let col = c0; col <= c1; col++) {
+                                const px0 = Math.max(0, Math.floor((col - vpX) * cellPxDpr));
+                                const px1 = Math.min(pxSize, Math.floor((col - vpX + 1) * cellPxDpr));
+                                const rgb = parseRgb(getCellColor(row, col, cachedMaxDiff));
+                                for (let py = py0; py < py1; py++) {
+                                    for (let px = px0; px < px1; px++) {
+                                        const idx = (py * pxSize + px) * 4;
+                                        data[idx] = rgb[0]; data[idx+1] = rgb[1]; data[idx+2] = rgb[2]; data[idx+3] = 255;
+                                    }
+                                }
+                            }
+                        }
+                        rowIdx = end;
+                        if (rowIdx <= r1) {
+                            requestAnimationFrame(chunk);
+                        } else {
+                            ctx.putImageData(imgData, 0, 0);
+                            spinner.classList.add('hidden');
+                            drawAbortController = null;
+                        }
+                    }
+                    requestAnimationFrame(chunk);
+                } else {
+                    let rowIdx = r0;
+                    const ROWS_PER_CHUNK = Math.max(1, Math.floor(20000 / (c1 - c0 + 1)));
+
+                    function chunk() {
+                        if (controller.aborted) return;
+                        const end = Math.min(rowIdx + ROWS_PER_CHUNK, r1 + 1);
+                        for (let row = rowIdx; row < end; row++) {
+                            for (let col = c0; col <= c1; col++) {
+                                const x = (col - vpX) * cellPx;
+                                const y = (row - vpY) * cellPx;
+                                ctx.fillStyle = getCellColor(row, col, cachedMaxDiff);
+                                ctx.fillRect(x, y, cellPx, cellPx);
+                                if (cellPx >= 4) {
+                                    ctx.strokeStyle = '#e2e8f0';
+                                    ctx.lineWidth = 0.5;
+                                    ctx.strokeRect(x + 0.25, y + 0.25, cellPx - 0.5, cellPx - 0.5);
+                                }
+                            }
+                        }
+                        rowIdx = end;
+                        if (rowIdx <= r1) {
+                            requestAnimationFrame(chunk);
+                        } else {
+                            spinner.classList.add('hidden');
+                            drawAbortController = null;
+                        }
+                    }
+                    requestAnimationFrame(chunk);
+                }
+            }
+
+            function computeMaxDiff(n) {
+                let maxDiff = 0;
+                for (let i = 0; i < n; i++) {
+                    for (let j = i + 1; j < n; j++) {
+                        const d = Math.abs(prices[j].close - prices[i].close);
+                        if (d > maxDiff) maxDiff = d;
+                    }
+                }
+                return maxDiff;
+            }
+
+            function getCellColor(row, col, maxDiff) {
+                if (col < row) return '#fafafa';
+                if (col === row) return '#cbd5e1';
+                const diff = prices[col].close - prices[row].close;
+                const t = maxDiff > 0 ? Math.min(Math.abs(diff) / maxDiff, 1) : 0;
+                if (diff >= 0) {
+                    return `rgb(${Math.round(240 - t * 186)},${Math.round(250 - t * 50)},${Math.round(240 - t * 186)})`;
+                } else {
+                    return `rgb(${Math.round(250 - t * 16)},${Math.round(240 - t * 186)},${Math.round(240 - t * 186)})`;
+                }
+            }
+
+            const colorCache = {};
+            function parseRgb(color) {
+                if (colorCache[color]) return colorCache[color];
+                let r, g, b;
+                if (color.startsWith('#')) {
+                    const hex = color.slice(1);
+                    r = parseInt(hex.slice(0, 2), 16);
+                    g = parseInt(hex.slice(2, 4), 16);
+                    b = parseInt(hex.slice(4, 6), 16);
+                } else {
+                    const m = color.match(/(\d+)/g);
+                    r = parseInt(m[0]); g = parseInt(m[1]); b = parseInt(m[2]);
+                }
+                const result = [r, g, b];
+                colorCache[color] = result;
+                return result;
+            }
+
+            // --- Zoom (scroll wheel) ---
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const n = prices.length;
+                if (n < 2) return;
+
+                const rect = canvas.getBoundingClientRect();
+                const mx = (e.clientX - rect.left) / rect.width;
+                const my = (e.clientY - rect.top) / rect.height;
+
+                const focusCellX = vpX + mx * vpSize;
+                const focusCellY = vpY + my * vpSize;
+
+                const delta = Math.min(Math.abs(e.deltaY), 100);
+                const zoomFactor = e.deltaY > 0 ? 1 + delta / 200 : 1 - delta / 200;
+                vpSize = Math.max(4, Math.min(vpSize * zoomFactor, n));
+
+                vpX = focusCellX - mx * vpSize;
+                vpY = focusCellY - my * vpSize;
+                clampViewport();
+                drawEngel();
+            }, { passive: false });
+
+            // --- Pan (drag) ---
+            canvas.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                isDragging = true;
+                lastDragX = e.clientX;
+                lastDragY = e.clientY;
+                canvas.style.cursor = 'grabbing';
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const rect = canvas.getBoundingClientRect();
+                const cellPx = rect.width / vpSize;
+                vpX -= (e.clientX - lastDragX) / cellPx;
+                vpY -= (e.clientY - lastDragY) / cellPx;
+                lastDragX = e.clientX;
+                lastDragY = e.clientY;
+                clampViewport();
+                drawEngel();
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (!isDragging) return;
+                isDragging = false;
+                canvas.style.cursor = '';
+            });
+
+            // --- Tooltip ---
+            canvas.addEventListener('mousemove', (e) => {
+                if (isDragging) { tooltipEl.style.display = 'none'; return; }
+                const n = prices.length;
+                if (n < 2) return;
+                const rect = canvas.getBoundingClientRect();
+                const mx = e.clientX - rect.left;
+                const my = e.clientY - rect.top;
+                const cellPx = rect.width / vpSize;
+                const col = Math.floor(vpX + mx / cellPx);
+                const row = Math.floor(vpY + my / cellPx);
+
+                if (row < 0 || row >= n || col < 0 || col >= n || col < row) {
+                    tooltipEl.style.display = 'none';
+                    return;
+                }
+
+                let html;
+                if (col === row) {
+                    html = `<strong>${prices[row].date}</strong><br>Close: $${prices[row].close.toFixed(2)}`;
+                } else {
+                    const diff = prices[col].close - prices[row].close;
+                    const pct = ((diff / prices[row].close) * 100).toFixed(2);
+                    const sign = diff >= 0 ? '+' : '';
+                    html = `<strong>${prices[row].date} &rarr; ${prices[col].date}</strong><br>${sign}$${diff.toFixed(2)} (${sign}${pct}%)`;
+                }
+
+                tooltipEl.innerHTML = html;
+                tooltipEl.style.display = 'block';
+
+                const containerRect = canvas.parentElement.getBoundingClientRect();
+                let left = e.clientX - containerRect.left + 12;
+                let top = e.clientY - containerRect.top - 8;
+                const tw = tooltipEl.offsetWidth;
+                if (left + tw > containerRect.width) left = left - tw - 24;
+                if (top < 0) top = 4;
+                tooltipEl.style.left = left + 'px';
+                tooltipEl.style.top = top + 'px';
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                tooltipEl.style.display = 'none';
+            });
+
+            // --- Day selector buttons ---
+            daysButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const days = parseInt(btn.dataset.days);
+                    daysButtons.forEach(b => {
+                        b.classList.remove('bg-slate-700', 'text-white');
+                        b.classList.add('bg-white', 'text-gray-700');
+                    });
+                    btn.classList.remove('bg-white', 'text-gray-700');
+                    btn.classList.add('bg-slate-700', 'text-white');
+                    buildAndDraw(days);
+                });
+            });
+
+            // Redraw on resize
+            let resizeTimer;
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => drawEngel(), 150);
+            });
+
+            // Initial draw
+            buildAndDraw(30);
         })();
     </script>
 @endif
