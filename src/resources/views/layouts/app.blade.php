@@ -64,10 +64,10 @@
         }
     </style>
 </head>
-<body class="bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
+<body class="bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen flex flex-col">
     @include('partials.navbar')
 
-    <main>
+    <main class="flex-1">
         @yield('content')
     </main>
 

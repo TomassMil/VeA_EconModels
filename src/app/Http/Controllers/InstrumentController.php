@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Instrument;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -174,11 +175,16 @@ class InstrumentController extends Controller
             ->sortDesc()
             ->values();
 
+        $userPortfolios = Auth::check()
+            ? \App\Models\Portfolio::where('user_id', Auth::id())->orderBy('name')->get(['id', 'name', 'free_capital'])
+            : collect();
+
         return view('instruments.show', [
             'instrument' => $instrument,
             'priceSeries' => $priceSeries,
             'availableFundamentalYears' => $availableFundamentalYears,
             'fundamentalData' => $fundamentalData,
+            'userPortfolios' => $userPortfolios,
         ]);
     }
 

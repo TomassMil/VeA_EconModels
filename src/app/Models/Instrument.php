@@ -20,4 +20,11 @@ class Instrument extends Model
             ->withPivot('added_manually')
             ->withTimestamps();
     }
+
+    public function portfolios(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Portfolio::class, 'portfolio_instrument')
+            ->withPivot(['amount_invested', 'shares'])
+            ->withTimestamps();
+    }
 }

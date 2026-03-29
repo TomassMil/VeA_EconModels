@@ -7,16 +7,136 @@
             ← Atpakaļ uz Instrumenti
         </a>
 
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-900">
-                {{ $instrument->ticker }}
-            </h1>
-            @if ($instrument->company_name)
-                <p class="text-gray-600 mt-2">
-                    {{ $instrument->company_name }}
-                </p>
-            @endif
+        <div class="mb-8 flex flex-wrap items-start justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">
+                    {{ $instrument->ticker }}
+                </h1>
+                @if ($instrument->company_name)
+                    <p class="text-gray-600 mt-2">
+                        {{ $instrument->company_name }}
+                    </p>
+                @endif
+            </div>
+
+            @auth
+                @if ($userPortfolios->isNotEmpty())
+                    <div class="relative">
+                        <button type="button" id="portfolio-toggle-btn"
+                                class="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Pievienot savā portfelī
+                        </button>
+
+                        <div id="portfolio-dropdown" class="hidden absolute right-0 top-full mt-2 w-80 bg-white rounded-xl border border-gray-200 shadow-lg z-30 p-4">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-3">Izvēlies portfeli un summu</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="text-xs text-gray-500 mb-1 block">Portfelis</label>
+                                    <select id="portfolio-select" class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
+                                        @foreach ($userPortfolios as $p)
+                                            <option value="{{ $p->id }}" data-free="{{ $p->free_capital }}">{{ $p->name }} — brīvs: ${{ number_format((float)$p->free_capital, 2) }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500 mb-1 block">Summa ($)</label>
+                                    <input type="number" id="portfolio-amount" placeholder="0.00" min="0.01" step="0.01"
+                                           class="w-full rounded-lg border border-gray-300 text-sm px-3 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
+                                </div>
+                                <button type="button" id="add-to-portfolio-btn"
+                                        class="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
+                                    Pievienot
+                                </button>
+                                <p id="portfolio-msg" class="text-xs text-center hidden"></p>
+                            </div>
+                        </div>
+                    </div>
+                @else
+                    <a href="{{ route('portfolios.index') }}"
+                       class="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-200 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        Izveido portfeli
+                    </a>
+                @endif
+            @endauth
         </div>
+
+        <script>
+        (function() {
+            const toggleBtn = document.getElementById('portfolio-toggle-btn');
+            const dropdown = document.getElementById('portfolio-dropdown');
+            if (!toggleBtn || !dropdown) return;
+
+            toggleBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                dropdown.classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!dropdown.contains(e.target) && e.target !== toggleBtn) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+
+            const btn = document.getElementById('add-to-portfolio-btn');
+            const select = document.getElementById('portfolio-select');
+            const amountInput = document.getElementById('portfolio-amount');
+            const msg = document.getElementById('portfolio-msg');
+            const instrumentId = {{ $instrument->id }};
+
+            btn.addEventListener('click', function() {
+                const portfolioId = select.value;
+                const amount = parseFloat(amountInput.value);
+                if (!amount || amount <= 0) {
+                    msg.textContent = 'Ievadi summu.';
+                    msg.className = 'text-xs text-red-600 text-center';
+                    msg.classList.remove('hidden');
+                    return;
+                }
+
+                btn.disabled = true;
+                btn.textContent = '...';
+                msg.classList.add('hidden');
+
+                fetch(`/portfelis/${portfolioId}/add-instrument`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    body: JSON.stringify({ instrument_id: instrumentId, amount: amount }),
+                })
+                .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+                .then(({ ok, data }) => {
+                    if (!ok) {
+                        msg.textContent = data.error || 'Kļūda.';
+                        msg.className = 'text-xs text-red-600 text-center';
+                    } else {
+                        msg.textContent = 'Veiksmīgi pievienots portfelī!';
+                        msg.className = 'text-xs text-green-600 font-medium text-center';
+                        amountInput.value = '';
+                        // Update free capital in dropdown
+                        const opt = select.options[select.selectedIndex];
+                        const newFree = parseFloat(opt.dataset.free) - amount;
+                        opt.dataset.free = newFree;
+                        opt.textContent = opt.textContent.replace(/brīvs: \$[\d,.]+/, 'brīvs: $' + newFree.toFixed(2));
+                    }
+                    msg.classList.remove('hidden');
+                    btn.disabled = false;
+                    btn.textContent = 'Pievienot';
+                })
+                .catch(() => {
+                    msg.textContent = 'Savienojuma kļūda.';
+                    msg.className = 'text-xs text-red-600 text-center';
+                    msg.classList.remove('hidden');
+                    btn.disabled = false;
+                    btn.textContent = 'Pievienot';
+                });
+            });
+        })();
+        </script>
 
         <section class="rounded-xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3">

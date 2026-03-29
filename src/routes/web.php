@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\IndexController;
 use App\Http\Controllers\InstrumentController;
+use App\Http\Controllers\PortfolioController;
 use Illuminate\Support\Facades\Route;
 
 $topics = [
@@ -83,6 +84,12 @@ Route::middleware('auth')->group(function () use ($topics, $categories) {
     Route::get('/indeksi/{index}', [IndexController::class, 'show'])->name('indexes.show');
     Route::post('/indeksi/preview', [IndexController::class, 'preview'])->name('indexes.preview');
     Route::delete('/indeksi/{index}', [IndexController::class, 'destroy'])->name('indexes.destroy');
+
+    Route::get('/portfelis', [PortfolioController::class, 'index'])->name('portfolios.index');
+    Route::post('/portfelis', [PortfolioController::class, 'store'])->name('portfolios.store');
+    Route::get('/portfelis/{portfolio}', [PortfolioController::class, 'show'])->name('portfolios.show');
+    Route::post('/portfelis/{portfolio}/add-instrument', [PortfolioController::class, 'addInstrument'])->name('portfolios.addInstrument');
+    Route::delete('/portfelis/{portfolio}/remove-instrument/{instrumentId}', [PortfolioController::class, 'removeInstrument'])->name('portfolios.removeInstrument');
 
     Route::get('/models', function () use ($topics) {
         return view('models', [

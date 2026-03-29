@@ -50,4 +50,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Index::class);
     }
+
+    public function portfolios(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Portfolio::class);
+    }
 }
