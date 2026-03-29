@@ -13,4 +13,11 @@ class Instrument extends Model
         'simfin_id',
         'exchange',
     ];
+
+    public function indexes(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Index::class, 'index_instrument')
+            ->withPivot('added_manually')
+            ->withTimestamps();
+    }
 }

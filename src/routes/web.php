@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\IndexController;
 use App\Http\Controllers\InstrumentController;
 use Illuminate\Support\Facades\Route;
 
@@ -61,45 +62,62 @@ $categories = [
     ],
 ];
 
-Route::get('/', function () {
-    return view('home');
+/*
+|--------------------------------------------------------------------------
+| Authenticated routes — require login
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth')->group(function () use ($topics, $categories) {
+
+    Route::get('/', function () {
+        return view('home');
+    })->name('home');
+
+    Route::get('/instrumenti', [InstrumentController::class, 'index'])->name('instruments.index');
+    Route::get('/instrumenti/search', [InstrumentController::class, 'search'])->name('instruments.search');
+    Route::get('/instrument/{instrument}', [InstrumentController::class, 'show'])->name('instruments.show');
+
+    Route::get('/indeksi', [IndexController::class, 'index'])->name('indexes.index');
+    Route::get('/indeksi/izveidot', [IndexController::class, 'create'])->name('indexes.create');
+    Route::post('/indeksi', [IndexController::class, 'store'])->name('indexes.store');
+    Route::get('/indeksi/{index}', [IndexController::class, 'show'])->name('indexes.show');
+    Route::post('/indeksi/preview', [IndexController::class, 'preview'])->name('indexes.preview');
+    Route::delete('/indeksi/{index}', [IndexController::class, 'destroy'])->name('indexes.destroy');
+
+    Route::get('/models', function () use ($topics) {
+        return view('models', [
+            'topics' => $topics,
+        ]);
+    })->name('models.index');
+
+    Route::get('/par-projektu', function () {
+        return view('about');
+    })->name('about');
+
+    Route::get('/kategorijas/{slug}', function (string $slug) use ($categories, $topics) {
+        if (!array_key_exists($slug, $categories)) {
+            abort(404);
+        }
+
+        $category = $categories[$slug];
+        $subtopics = array_intersect_key($topics, array_flip($category['topics']));
+
+        return view('category', [
+            'category' => $category,
+            'subtopics' => $subtopics,
+        ]);
+    })->name('category.show');
+
+    Route::get('/temas/{slug}', function (string $slug) use ($topics) {
+        if (!array_key_exists($slug, $topics)) {
+            abort(404);
+        }
+
+        return view('topic', [
+            'title' => $topics[$slug],
+            'slug' => $slug,
+        ]);
+    })->name('topic.show');
 });
 
-Route::get('/instrumenti', [InstrumentController::class, 'index'])->name('instruments.index');
-Route::get('/instrumenti/search', [InstrumentController::class, 'search'])->name('instruments.search');
-Route::get('/instrument/{instrument}', [InstrumentController::class, 'show'])->name('instruments.show');
-
-Route::get('/models', function () use ($topics) {
-    return view('models', [
-        'topics' => $topics,
-    ]);
-})->name('models.index');
-
-Route::get('/par-projektu', function () {
-    return view('about');
-})->name('about');
-
-Route::get('/kategorijas/{slug}', function (string $slug) use ($categories, $topics) {
-    if (!array_key_exists($slug, $categories)) {
-        abort(404);
-    }
-
-    $category = $categories[$slug];
-    $subtopics = array_intersect_key($topics, array_flip($category['topics']));
-
-    return view('category', [
-        'category' => $category,
-        'subtopics' => $subtopics,
-    ]);
-})->name('category.show');
-
-Route::get('/temas/{slug}', function (string $slug) use ($topics) {
-    if (!array_key_exists($slug, $topics)) {
-        abort(404);
-    }
-
-    return view('topic', [
-        'title' => $topics[$slug],
-        'slug' => $slug,
-    ]);
-})->name('topic.show');
+require __DIR__.'/auth.php';
