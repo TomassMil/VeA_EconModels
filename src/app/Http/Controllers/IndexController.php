@@ -4,15 +4,21 @@ namespace App\Http\Controllers;
 
 use App\Models\Index;
 use App\Models\Instrument;
+use App\Services\ChartService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class IndexController extends Controller
 {
+    public function __construct(private ChartService $chartService) {}
+
+
     /**
      * Suggested filter presets for quick index creation.
      */
@@ -191,21 +197,33 @@ class IndexController extends Controller
         return redirect()->route('indexes.show', $index)->with('status', 'Indekss izveidots!');
     }
 
-    public function show(Index $index): View
+    public function show(Request $request, Index $index): View
     {
-        // Users can view public indexes or their own
-        if (!$index->is_public && $index->user_id !== Auth::id()) {
-            abort(403);
-        }
+        Gate::authorize('view', $index);
 
         $instruments = $index->instruments()
             ->select(['instruments.id', 'ticker', 'company_name', 'exchange'])
             ->orderBy('ticker')
             ->paginate(50);
 
+        $weighting = $request->query('weighting', 'market_cap');
+        if (!in_array($weighting, ['market_cap', 'equal', 'price'], true)) {
+            $weighting = 'market_cap';
+        }
+
+        $allInstrumentIds = $index->instruments()->pluck('instruments.id')->all();
+
+        $chart = Cache::remember(
+            "index_chart:{$index->id}:{$weighting}",
+            3600,
+            fn () => $this->chartService->buildIndexSeries($allInstrumentIds, $weighting)
+        );
+
         return view('indexes.show', [
             'index' => $index,
             'instruments' => $instruments,
+            'chart' => $chart,
+            'weighting' => $weighting,
         ]);
     }
 
@@ -269,9 +287,7 @@ class IndexController extends Controller
 
     public function destroy(Index $index)
     {
-        if ($index->user_id !== Auth::id()) {
-            abort(403);
-        }
+        Gate::authorize('delete', $index);
 
         $index->delete();
 

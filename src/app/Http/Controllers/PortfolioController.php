@@ -3,15 +3,22 @@
 namespace App\Http\Controllers;
 
 use App\Models\Portfolio;
+use App\Models\PortfolioTransaction;
+use App\Services\ChartService;
+use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class PortfolioController extends Controller
 {
+    public function __construct(private ChartService $chartService) {}
+
+
     public function index(): View
     {
         $portfolios = Portfolio::where('user_id', Auth::id())
@@ -37,25 +44,40 @@ class PortfolioController extends Controller
             'free_capital' => $request->input('free_capital'),
         ]);
 
+        if ((float) $request->input('free_capital') > 0) {
+            PortfolioTransaction::create([
+                'portfolio_id' => $portfolio->id,
+                'instrument_id' => null,
+                'type' => 'deposit',
+                'transaction_date' => now()->toDateString(),
+                'amount' => (float) $request->input('free_capital'),
+                'currency' => $portfolio->currency,
+                'note' => 'Initial deposit',
+            ]);
+        }
+
         return redirect()->route('portfolios.show', $portfolio);
     }
 
     public function show(Portfolio $portfolio): View
     {
-        if ($portfolio->user_id !== Auth::id()) {
-            abort(403);
-        }
+        Gate::authorize('view', $portfolio);
 
         $instruments = $portfolio->instruments()
             ->select(['instruments.id', 'ticker', 'company_name', 'exchange'])
             ->orderBy('ticker')
             ->get();
 
+        $chart = $this->chartService->buildPortfolioSeries($portfolio);
+        $transactions = $this->loadTransactions($portfolio);
+
         if ($instruments->isEmpty()) {
             return view('portfolios.show', [
                 'portfolio' => $portfolio,
                 'cards' => collect(),
                 'summary' => $this->buildSummary($portfolio, collect()),
+                'chart' => $chart,
+                'transactions' => $transactions,
             ]);
         }
 
@@ -124,6 +146,9 @@ class PortfolioController extends Controller
             $shares = (float) $inst->pivot->shares;
             $currentValue = ($currentClose !== null && $shares > 0) ? $currentClose * $shares : $amountInvested;
 
+            $totalChangeAbs = ($currentClose !== null && $shares > 0) ? $currentValue - $amountInvested : null;
+            $totalChangePct = ($totalChangeAbs !== null && $amountInvested > 0) ? ($totalChangeAbs / $amountInvested) * 100 : null;
+
             return (object) [
                 'instrument' => $inst,
                 'series' => $series,
@@ -133,6 +158,8 @@ class PortfolioController extends Controller
                 'day_change_pct' => $dayChangePct,
                 'week_change_abs' => $weekChangeAbs,
                 'week_change_pct' => $weekChangePct,
+                'total_change_abs' => $totalChangeAbs,
+                'total_change_pct' => $totalChangePct,
                 'amount_invested' => $amountInvested,
                 'shares' => $shares,
                 'current_value' => $currentValue,
@@ -145,100 +172,273 @@ class PortfolioController extends Controller
             'portfolio' => $portfolio,
             'cards' => $cards,
             'summary' => $summary,
+            'chart' => $chart,
+            'transactions' => $transactions,
         ]);
+    }
+
+    private function loadTransactions(Portfolio $portfolio)
+    {
+        return DB::table('portfolio_transactions as pt')
+            ->leftJoin('instruments as i', 'i.id', '=', 'pt.instrument_id')
+            ->where('pt.portfolio_id', $portfolio->id)
+            ->orderByDesc('pt.transaction_date')
+            ->orderByDesc('pt.id')
+            ->select([
+                'pt.id',
+                'pt.type',
+                'pt.transaction_date',
+                'pt.shares',
+                'pt.price_per_share',
+                'pt.amount',
+                'pt.currency',
+                'pt.note',
+                'pt.instrument_id',
+                'i.ticker',
+            ])
+            ->get();
     }
 
     public function addInstrument(Request $request, Portfolio $portfolio): JsonResponse
     {
-        if ($portfolio->user_id !== Auth::id()) {
-            abort(403);
-        }
+        Gate::authorize('update', $portfolio);
 
         $request->validate([
             'instrument_id' => 'required|integer|exists:instruments,id',
             'amount' => 'required|numeric|min:0.01',
         ]);
 
-        $amount = (float) $request->input('amount');
+        $requestedAmount = (string) $request->input('amount');
+        $instrumentId = (int) $request->input('instrument_id');
 
-        if ($amount > (float) $portfolio->free_capital) {
-            return response()->json(['error' => 'Nepietiek brīvā kapitāla.'], 422);
-        }
-
-        // Get current price to calculate shares
         $price = DB::table('prices_daily')
-            ->where('instrument_id', $request->input('instrument_id'))
+            ->where('instrument_id', $instrumentId)
             ->whereNotNull('close')
             ->orderByDesc('time')
             ->value('close');
 
-        $shares = $price ? round($amount / (float) $price, 6) : 0;
-
-        // Check if instrument already in portfolio
-        $existing = $portfolio->instruments()->where('instrument_id', $request->input('instrument_id'))->first();
-
-        if ($existing) {
-            $portfolio->instruments()->updateExistingPivot($request->input('instrument_id'), [
-                'amount_invested' => (float) $existing->pivot->amount_invested + $amount,
-                'shares' => (float) $existing->pivot->shares + $shares,
-            ]);
-        } else {
-            $portfolio->instruments()->attach($request->input('instrument_id'), [
-                'amount_invested' => $amount,
-                'shares' => $shares,
-            ]);
+        if (!$price) {
+            return response()->json(['error' => 'Nav pieejama cena šim instrumentam.'], 422);
         }
 
-        $portfolio->update(['free_capital' => (float) $portfolio->free_capital - $amount]);
+        $priceStr = (string) $price;
+        $shares = bcdiv($requestedAmount, $priceStr, 3);
+        if (Money::lte($shares, '0', 3)) {
+            return response()->json(['error' => 'Summa par mazu — vismaz 0.001 akcijai jābūt.'], 422);
+        }
+
+        $actualCost = Money::mul($shares, $priceStr, Money::SCALE_CASH);
+
+        try {
+            DB::transaction(function () use ($portfolio, $instrumentId, $shares, $priceStr, $actualCost) {
+                $locked = Portfolio::where('id', $portfolio->id)->lockForUpdate()->first();
+
+                if (Money::gt($actualCost, $locked->free_capital)) {
+                    abort(response()->json(['error' => 'Nepietiek brīvā kapitāla.'], 422));
+                }
+
+                $existing = $locked->instruments()->where('instrument_id', $instrumentId)->first();
+
+                if ($existing) {
+                    $locked->instruments()->updateExistingPivot($instrumentId, [
+                        'amount_invested' => Money::add($existing->pivot->amount_invested, $actualCost),
+                        'shares' => Money::add($existing->pivot->shares, $shares, 3),
+                    ]);
+                } else {
+                    $locked->instruments()->attach($instrumentId, [
+                        'amount_invested' => $actualCost,
+                        'shares' => $shares,
+                    ]);
+                }
+
+                PortfolioTransaction::create([
+                    'portfolio_id' => $locked->id,
+                    'instrument_id' => $instrumentId,
+                    'type' => 'buy',
+                    'transaction_date' => now()->toDateString(),
+                    'shares' => $shares,
+                    'price_per_share' => $priceStr,
+                    'amount' => Money::neg($actualCost),
+                    'currency' => $locked->currency,
+                ]);
+
+                $locked->update(['free_capital' => Money::sub($locked->free_capital, $actualCost)]);
+            });
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            return $e->getResponse();
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    public function sellInstrument(Request $request, Portfolio $portfolio, int $instrumentId): JsonResponse
+    {
+        Gate::authorize('update', $portfolio);
+
+        $request->validate([
+            'shares' => 'required|numeric|min:0.001',
+        ]);
+
+        $sharesRequested = bcadd((string) $request->input('shares'), '0', 3);
+        if (Money::lte($sharesRequested, '0', 3)) {
+            return response()->json(['error' => 'Pārdošanas apjoms ir 0.'], 422);
+        }
+
+        $currentPrice = DB::table('prices_daily')
+            ->where('instrument_id', $instrumentId)
+            ->whereNotNull('close')
+            ->orderByDesc('time')
+            ->value('close');
+
+        $currentPriceStr = $currentPrice ? (string) $currentPrice : null;
+
+        try {
+            DB::transaction(function () use ($portfolio, $instrumentId, $sharesRequested, $currentPriceStr) {
+                $locked = Portfolio::where('id', $portfolio->id)->lockForUpdate()->first();
+
+                $existing = $locked->instruments()->where('instrument_id', $instrumentId)->first();
+                if (!$existing) {
+                    abort(response()->json(['error' => 'Instruments nav portfelī.'], 404));
+                }
+
+                $currentShares = (string) $existing->pivot->shares;
+                $currentInvested = (string) $existing->pivot->amount_invested;
+
+                if (Money::gt($sharesRequested, $currentShares, 3)) {
+                    abort(response()->json(['error' => 'Nevar pārdot vairāk akciju nekā ir.'], 422));
+                }
+
+                $sharesToSell = Money::lte($sharesRequested, $currentShares, 3) ? $sharesRequested : $currentShares;
+
+                $proceeds = $currentPriceStr
+                    ? Money::mul($sharesToSell, $currentPriceStr)
+                    : Money::mul(Money::div($sharesToSell, $currentShares), $currentInvested);
+
+                PortfolioTransaction::create([
+                    'portfolio_id' => $locked->id,
+                    'instrument_id' => $instrumentId,
+                    'type' => 'sell',
+                    'transaction_date' => now()->toDateString(),
+                    'shares' => Money::neg($sharesToSell, 3),
+                    'price_per_share' => $currentPriceStr,
+                    'amount' => $proceeds,
+                    'currency' => $locked->currency,
+                ]);
+
+                $remainingShares = Money::sub($currentShares, $sharesToSell, 3);
+
+                if (Money::lte($remainingShares, '0.000001', 6)) {
+                    $locked->instruments()->detach($instrumentId);
+                } else {
+                    $costBasisSold = Money::mul(Money::div($sharesToSell, $currentShares), $currentInvested);
+                    $remainingInvested = Money::sub($currentInvested, $costBasisSold);
+                    if (Money::lte($remainingInvested, '0')) {
+                        $remainingInvested = '0.00';
+                    }
+                    $locked->instruments()->updateExistingPivot($instrumentId, [
+                        'amount_invested' => $remainingInvested,
+                        'shares' => $remainingShares,
+                    ]);
+                }
+
+                $locked->update([
+                    'free_capital' => Money::add($locked->free_capital, $proceeds),
+                ]);
+            });
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            return $e->getResponse();
+        }
 
         return response()->json(['success' => true]);
     }
 
     public function removeInstrument(Portfolio $portfolio, int $instrumentId): JsonResponse
     {
-        if ($portfolio->user_id !== Auth::id()) {
-            abort(403);
+        Gate::authorize('update', $portfolio);
+
+        $currentPrice = DB::table('prices_daily')
+            ->where('instrument_id', $instrumentId)
+            ->whereNotNull('close')
+            ->orderByDesc('time')
+            ->value('close');
+
+        $currentPriceStr = $currentPrice ? (string) $currentPrice : null;
+
+        try {
+            DB::transaction(function () use ($portfolio, $instrumentId, $currentPriceStr) {
+                $locked = Portfolio::where('id', $portfolio->id)->lockForUpdate()->first();
+
+                $existing = $locked->instruments()->where('instrument_id', $instrumentId)->first();
+                if (!$existing) {
+                    abort(response()->json(['error' => 'Instruments nav portfelī.'], 404));
+                }
+
+                $shares = (string) $existing->pivot->shares;
+                $invested = (string) $existing->pivot->amount_invested;
+
+                $proceeds = ($currentPriceStr && Money::gt($shares, '0', 3))
+                    ? Money::mul($shares, $currentPriceStr)
+                    : $invested;
+
+                PortfolioTransaction::create([
+                    'portfolio_id' => $locked->id,
+                    'instrument_id' => $instrumentId,
+                    'type' => 'sell',
+                    'transaction_date' => now()->toDateString(),
+                    'shares' => Money::neg($shares, 3),
+                    'price_per_share' => $currentPriceStr,
+                    'amount' => $proceeds,
+                    'currency' => $locked->currency,
+                ]);
+
+                $locked->update([
+                    'free_capital' => Money::add($locked->free_capital, $proceeds),
+                ]);
+
+                $locked->instruments()->detach($instrumentId);
+            });
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            return $e->getResponse();
         }
-
-        $existing = $portfolio->instruments()->where('instrument_id', $instrumentId)->first();
-
-        if (!$existing) {
-            return response()->json(['error' => 'Instruments nav portfelī.'], 404);
-        }
-
-        // Return invested amount to free capital
-        $portfolio->update([
-            'free_capital' => (float) $portfolio->free_capital + (float) $existing->pivot->amount_invested,
-        ]);
-
-        $portfolio->instruments()->detach($instrumentId);
 
         return response()->json(['success' => true]);
     }
 
     private function buildSummary(Portfolio $portfolio, $cards): object
     {
-        $totalInvested = $cards->sum('amount_invested');
-        $totalCurrentValue = $cards->sum('current_value');
-        $freeCapital = (float) $portfolio->free_capital;
-        $portfolioValue = $totalCurrentValue + $freeCapital;
-        $totalChange = $totalCurrentValue - $totalInvested;
-        $totalChangePct = $totalInvested > 0 ? ($totalChange / $totalInvested) * 100 : 0;
+        $cash = (float) DB::table('portfolio_transactions')
+            ->where('portfolio_id', $portfolio->id)
+            ->sum('amount');
 
-        // Add weight to each card
+        $costBasis = (float) $cards->sum('amount_invested');
+
+        $marketValue = 0.0;
         foreach ($cards as $card) {
+            if ($card->current_close !== null && $card->shares > 0) {
+                $marketValue += $card->shares * $card->current_close;
+            }
+        }
+
+        $portfolioValue = $cash + $marketValue;
+        $totalChange = $marketValue - $costBasis;
+        $totalChangePct = $costBasis > 0 ? ($totalChange / $costBasis) * 100 : 0;
+
+        foreach ($cards as $card) {
+            $marketWeight = ($card->current_close !== null && $card->shares > 0)
+                ? $card->shares * $card->current_close
+                : 0;
             $card->weight = $portfolioValue > 0
-                ? ($card->current_value / $portfolioValue) * 100
+                ? ($marketWeight / $portfolioValue) * 100
                 : 0;
         }
 
         return (object) [
             'portfolio_value' => $portfolioValue,
-            'total_invested' => $totalInvested,
-            'total_current_value' => $totalCurrentValue,
+            'total_invested' => $costBasis,
+            'total_current_value' => $marketValue,
             'total_change' => $totalChange,
             'total_change_pct' => $totalChangePct,
-            'free_capital' => $freeCapital,
+            'free_capital' => $cash,
             'currency' => $portfolio->currency,
         ];
     }

@@ -15,7 +15,6 @@ class Index extends Model
         'name',
         'slug',
         'description',
-        'is_public',
         'filters',
     ];
 

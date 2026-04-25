@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y \
     libonig-dev libxml2-dev libicu-dev \
     libpq-dev \
     && docker-php-ext-configure intl \
-    && docker-php-ext-install pdo pdo_pgsql intl \
+    && docker-php-ext-install pdo pdo_pgsql intl bcmath \
     && pecl install redis \
     && docker-php-ext-enable redis \
     && rm -rf /var/lib/apt/lists/*

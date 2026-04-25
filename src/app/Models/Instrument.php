@@ -12,6 +12,9 @@ class Instrument extends Model
         'cik',
         'simfin_id',
         'exchange',
+        'industry_id',
+        'sector',
+        'industry',
     ];
 
     public function indexes(): \Illuminate\Database\Eloquent\Relations\BelongsToMany

@@ -1,11 +1,39 @@
 /src/vendor
 /src/node_modules
-/src/.env
-/docker/db_data
-PROJECT_CONTEXT.md
 
-# SSL certificates
+# All env variants — only .env.example should be tracked
+/src/.env
+/src/.env.*
+!/src/.env.example
+.env
+.env.*
+!.env.example
+
+# Database volumes and dumps
+/docker/db_data
+*.sql.gz
+*.dump
+backups/
+
+# Local-only docs (personal notes, thesis material)
+PROJECT_CONTEXT.md
+PROJEKTA_KOPSAVILKUMS.md
+MODULU_KARTE.md
+DATU_PLUSMA.md
+DROSIBAS_AUDITS.md
+IZVIETOSANA.md
+
+# SSL certificates and private keys
 ssl/
 *.pem
 *.key
 *.crt
+id_rsa*
+*.p12
+
+# IDE / OS / logs
+.vscode/
+.idea/
+*.log
+.DS_Store
+Thumbs.db

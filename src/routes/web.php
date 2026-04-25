@@ -76,6 +76,7 @@ Route::middleware('auth')->group(function () use ($topics, $categories) {
 
     Route::get('/instrumenti', [InstrumentController::class, 'index'])->name('instruments.index');
     Route::get('/instrumenti/search', [InstrumentController::class, 'search'])->name('instruments.search');
+    Route::get('/instrumenti/filter', [InstrumentController::class, 'filter'])->name('instruments.filter');
     Route::get('/instrument/{instrument}', [InstrumentController::class, 'show'])->name('instruments.show');
 
     Route::get('/indeksi', [IndexController::class, 'index'])->name('indexes.index');
@@ -89,6 +90,7 @@ Route::middleware('auth')->group(function () use ($topics, $categories) {
     Route::post('/portfelis', [PortfolioController::class, 'store'])->name('portfolios.store');
     Route::get('/portfelis/{portfolio}', [PortfolioController::class, 'show'])->name('portfolios.show');
     Route::post('/portfelis/{portfolio}/add-instrument', [PortfolioController::class, 'addInstrument'])->name('portfolios.addInstrument');
+    Route::post('/portfelis/{portfolio}/sell-instrument/{instrumentId}', [PortfolioController::class, 'sellInstrument'])->name('portfolios.sellInstrument');
     Route::delete('/portfelis/{portfolio}/remove-instrument/{instrumentId}', [PortfolioController::class, 'removeInstrument'])->name('portfolios.removeInstrument');
 
     Route::get('/models', function () use ($topics) {

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Portfolio extends Model
 {
@@ -32,5 +33,10 @@ class Portfolio extends Model
         return $this->belongsToMany(Instrument::class, 'portfolio_instrument')
             ->withPivot(['amount_invested', 'shares'])
             ->withTimestamps();
+    }
+
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(PortfolioTransaction::class);
     }
 }

@@ -88,37 +88,135 @@ class InstrumentController extends Controller
         'PaymentsOfFinancingCosts',
     ];
 
+    private const INCOME_FIELDS = ['revenue', 'net_income', 'gross_profit', 'operating_income'];
+    private const BALANCE_FIELDS = ['total_assets', 'total_liabilities', 'total_equity'];
+
+    private const SIMFIN_INCOME_LABELS = [
+        'revenue' => 'Revenue',
+        'cost_of_revenue' => 'Cost of Revenue',
+        'gross_profit' => 'Gross Profit',
+        'rd' => 'R&D Expense',
+        'sga' => 'SG&A Expense',
+        'operating_expenses' => 'Operating Expenses',
+        'operating_income' => 'Operating Income',
+        'non_operating_income' => 'Non-operating Income',
+        'interest_expense_net' => 'Interest Expense',
+        'income_tax' => 'Income Tax',
+        'net_income' => 'Net Income',
+        'pretax_income' => 'Pretax Income',
+        'abnormal_gains_losses' => 'Abnormal Gains/Losses',
+        'depreciation_amortization' => 'Depreciation & Amortization',
+    ];
+
+    private const SIMFIN_BALANCE_LABELS = [
+        'total_assets' => 'Total Assets',
+        'total_current_assets' => 'Current Assets',
+        'cash_and_equivalents' => 'Cash & Equivalents',
+        'accounts_receivable' => 'Accounts Receivable',
+        'inventories' => 'Inventory',
+        'ppe_net' => 'PP&E (Net)',
+        'lt_investments' => 'Long-term Investments',
+        'total_liabilities' => 'Total Liabilities',
+        'total_current_liabilities' => 'Current Liabilities',
+        'payables_accruals' => 'Accounts Payable',
+        'short_term_debt' => 'Short-term Debt',
+        'long_term_debt' => 'Long-term Debt',
+        'total_equity' => "Stockholders' Equity",
+        'retained_earnings' => 'Retained Earnings',
+        'total_liabilities_equity' => 'Total Liabilities & Equity',
+        'shares_basic' => 'Shares Outstanding',
+    ];
+
+    private const SIMFIN_CASHFLOW_LABELS = [
+        'net_cash_operating' => 'Operating Cash Flow',
+        'depreciation_amortization' => 'Depreciation & Amortization',
+        'change_working_capital' => 'Change in Working Capital',
+        'change_fixed_assets' => 'Capital Expenditures',
+        'net_cash_investing' => 'Investing Cash Flow',
+        'net_cash_acquisitions' => 'Net Cash Acquisitions',
+        'cash_from_debt' => 'Cash from Debt',
+        'cash_from_equity' => 'Cash from Equity',
+        'dividends_paid' => 'Dividends Paid',
+        'net_cash_financing' => 'Financing Cash Flow',
+        'net_change_cash' => 'Net Change in Cash',
+    ];
+
+    private const PERF_INTERVALS = [
+        '1m' => '30 days',
+        '3m' => '90 days',
+        '6m' => '180 days',
+        '1y' => '365 days',
+    ];
+
+    private const PERF_DIRECTIONS = [
+        'up'     => [0,   null],
+        'down'   => [null, 0],
+        'up5'    => [5,   null],
+        'up10'   => [10,  null],
+        'up20'   => [20,  null],
+        'down5'  => [null, -5],
+        'down10' => [null, -10],
+        'down20' => [null, -20],
+    ];
+
     public function index(Request $request): View
     {
-        $rawSearch = trim((string) $request->query('q', ''));
-        $search = mb_substr($rawSearch, 0, 100);
+        $sectors = DB::table('instruments')
+            ->whereNotNull('sector')
+            ->distinct()
+            ->orderBy('sector')
+            ->pluck('sector');
 
-        $query = Instrument::query()
-            ->select(['id', 'ticker', 'company_name', 'exchange']);
+        $industriesGrouped = DB::table('instruments')
+            ->select(['sector', 'industry'])
+            ->whereNotNull('sector')
+            ->whereNotNull('industry')
+            ->distinct()
+            ->orderBy('sector')
+            ->orderBy('industry')
+            ->get();
 
-        if ($search !== '') {
-            $escapedSearch = $this->escapeLike(mb_strtolower($search));
-            $contains = '%'.$escapedSearch.'%';
-            $prefix = $escapedSearch.'%';
+        $industryBySector = $industriesGrouped
+            ->groupBy('sector')
+            ->map(fn ($group) => $group->pluck('industry')->unique()->values());
 
-            $query->where(function ($builder) use ($contains) {
-                $builder->whereRaw('lower(ticker) like ?', [$contains])
-                    ->orWhereRaw('lower(company_name) like ?', [$contains]);
-            })->orderByRaw(
-                'case when lower(ticker) like ? then 0 when lower(company_name) like ? then 1 else 2 end',
-                [$prefix, $prefix]
-            );
-        }
+        $allIndustries = $industriesGrouped->pluck('industry')->unique()->sort()->values();
 
-        $instruments = $query
-            ->orderBy('ticker')
-            ->orderBy('exchange')
-            ->paginate(25)
-            ->withQueryString();
+        $total = (int) DB::table('instruments')->count();
+
+        $instruments = $this->initialList();
 
         return view('instruments.index', [
             'instruments' => $instruments,
-            'search' => $search,
+            'sectors' => $sectors,
+            'industryBySector' => $industryBySector,
+            'allIndustries' => $allIndustries,
+            'total' => $total,
+        ]);
+    }
+
+    public function filter(Request $request): JsonResponse
+    {
+        $perPage = 50;
+        $page = max(1, (int) $request->input('page', 1));
+
+        [$query, $activeMetrics] = $this->buildFilterQuery($request);
+
+        $total = (int) (clone $query)->count('i.id');
+
+        $instruments = $query
+            ->orderBy('i.ticker')
+            ->limit($perPage)
+            ->offset(($page - 1) * $perPage)
+            ->get();
+
+        return response()->json([
+            'total' => $total,
+            'data' => $instruments,
+            'page' => $page,
+            'last_page' => max(1, (int) ceil($total / $perPage)),
+            'per_page' => $perPage,
+            'active_metrics' => array_values(array_unique($activeMetrics)),
         ]);
     }
 
@@ -188,13 +286,364 @@ class InstrumentController extends Controller
         ]);
     }
 
+    private function initialList()
+    {
+        return DB::table('instruments as i')
+            ->leftJoinLateral(
+                DB::table('prices_daily')
+                    ->select(['close as latest_close'])
+                    ->whereColumn('instrument_id', 'i.id')
+                    ->whereNotNull('close')
+                    ->orderByDesc('time')
+                    ->limit(1),
+                'ps'
+            )
+            ->select(['i.id', 'i.ticker', 'i.company_name', 'i.sector', 'i.industry', 'ps.latest_close'])
+            ->orderBy('i.ticker')
+            ->limit(50)
+            ->get();
+    }
+
+    /**
+     * Build the dynamic filter query. Returns [query, activeMetrics].
+     */
+    private function buildFilterQuery(Request $request): array
+    {
+        $query = DB::table('instruments as i')
+            ->select(['i.id', 'i.ticker', 'i.company_name', 'i.sector', 'i.industry']);
+
+        $activeMetrics = [];
+
+        // Search
+        $search = trim((string) $request->input('q', ''));
+        if ($search !== '') {
+            $escaped = $this->escapeLike(mb_strtolower(mb_substr($search, 0, 100)));
+            $contains = '%'.$escaped.'%';
+            $query->where(function ($q) use ($contains) {
+                $q->whereRaw('lower(i.ticker) like ?', [$contains])
+                    ->orWhereRaw('lower(i.company_name) like ?', [$contains]);
+            });
+        }
+
+        // Descriptive
+        if ($request->filled('sector')) {
+            $query->where('i.sector', $request->input('sector'));
+        }
+        if ($request->filled('industry')) {
+            $query->where('i.industry', $request->input('industry'));
+        }
+
+        // Always join latest price for display
+        $query->leftJoinLateral(
+            DB::table('prices_daily')
+                ->select(['close as latest_close'])
+                ->whereColumn('instrument_id', 'i.id')
+                ->whereNotNull('close')
+                ->orderByDesc('time')
+                ->limit(1),
+            'ps'
+        );
+        $query->addSelect('ps.latest_close');
+
+        if ($request->filled('price_min')) {
+            $query->where('ps.latest_close', '>=', (float) $request->input('price_min'));
+            $activeMetrics[] = 'latest_close';
+        }
+        if ($request->filled('price_max')) {
+            $query->where('ps.latest_close', '<=', (float) $request->input('price_max'));
+            $activeMetrics[] = 'latest_close';
+        }
+
+        // Volume
+        if ($request->filled('volume_min') || $request->filled('volume_max')) {
+            $query->leftJoin(
+                DB::raw("(SELECT instrument_id, AVG(volume)::bigint AS avg_volume FROM prices_daily GROUP BY instrument_id) AS vs"),
+                'i.id', '=', 'vs.instrument_id'
+            );
+            $query->addSelect('vs.avg_volume');
+            $activeMetrics[] = 'avg_volume';
+
+            if ($request->filled('volume_min')) {
+                $query->where('vs.avg_volume', '>=', (float) $request->input('volume_min'));
+            }
+            if ($request->filled('volume_max')) {
+                $query->where('vs.avg_volume', '<=', (float) $request->input('volume_max'));
+            }
+        }
+
+        // Income statement
+        $incomeActive = [];
+        foreach (self::INCOME_FIELDS as $f) {
+            if ($request->filled("{$f}_min") || $request->filled("{$f}_max")) {
+                $incomeActive[] = $f;
+                $activeMetrics[] = $f;
+            }
+        }
+        if (!empty($incomeActive)) {
+            $sums = implode(', ', array_map(fn ($f) => "SUM({$f}) AS {$f}", self::INCOME_FIELDS));
+            $query->leftJoin(
+                DB::raw("(SELECT instrument_id, {$sums} FROM (
+                    SELECT instrument_id, ".implode(', ', self::INCOME_FIELDS).",
+                           ROW_NUMBER() OVER (PARTITION BY instrument_id ORDER BY fiscal_year DESC, fiscal_period DESC) AS rn
+                    FROM simfin_income_statement
+                ) s WHERE rn <= 4 GROUP BY instrument_id) AS inc"),
+                'i.id', '=', 'inc.instrument_id'
+            );
+            foreach ($incomeActive as $f) {
+                $query->addSelect("inc.{$f}");
+                if ($request->filled("{$f}_min")) {
+                    $query->where("inc.{$f}", '>=', (float) $request->input("{$f}_min"));
+                }
+                if ($request->filled("{$f}_max")) {
+                    $query->where("inc.{$f}", '<=', (float) $request->input("{$f}_max"));
+                }
+            }
+        }
+
+        // Balance sheet
+        $bsActive = [];
+        foreach (self::BALANCE_FIELDS as $f) {
+            if ($request->filled("{$f}_min") || $request->filled("{$f}_max")) {
+                $bsActive[] = $f;
+                $activeMetrics[] = $f;
+            }
+        }
+        if (!empty($bsActive)) {
+            $cols = implode(', ', array_merge(['instrument_id'], self::BALANCE_FIELDS));
+            $query->leftJoin(
+                DB::raw("(SELECT DISTINCT ON (instrument_id) {$cols} FROM simfin_balance_sheet ORDER BY instrument_id, fiscal_year DESC, fiscal_period DESC) AS bs"),
+                'i.id', '=', 'bs.instrument_id'
+            );
+            foreach ($bsActive as $f) {
+                $query->addSelect("bs.{$f}");
+                if ($request->filled("{$f}_min")) {
+                    $query->where("bs.{$f}", '>=', (float) $request->input("{$f}_min"));
+                }
+                if ($request->filled("{$f}_max")) {
+                    $query->where("bs.{$f}", '<=', (float) $request->input("{$f}_max"));
+                }
+            }
+        }
+
+        // Cash flow (operating)
+        if ($request->filled('operating_cf_min') || $request->filled('operating_cf_max')) {
+            $query->leftJoin(
+                DB::raw("(SELECT instrument_id, SUM(net_cash_operating) AS net_cash_operating FROM (
+                    SELECT instrument_id, net_cash_operating,
+                           ROW_NUMBER() OVER (PARTITION BY instrument_id ORDER BY fiscal_year DESC, fiscal_period DESC) AS rn
+                    FROM simfin_cashflow
+                ) s WHERE rn <= 4 GROUP BY instrument_id) AS cf"),
+                'i.id', '=', 'cf.instrument_id'
+            );
+            $query->addSelect('cf.net_cash_operating');
+            $activeMetrics[] = 'operating_cf';
+
+            if ($request->filled('operating_cf_min')) {
+                $query->where('cf.net_cash_operating', '>=', (float) $request->input('operating_cf_min'));
+            }
+            if ($request->filled('operating_cf_max')) {
+                $query->where('cf.net_cash_operating', '<=', (float) $request->input('operating_cf_max'));
+            }
+        }
+
+        // Technical: price change over period
+        $perfPeriod = $request->input('perf_period');
+        $perfDirection = $request->input('perf_direction');
+        if ($perfPeriod && $perfDirection
+            && isset(self::PERF_INTERVALS[$perfPeriod])
+            && isset(self::PERF_DIRECTIONS[$perfDirection])
+        ) {
+            $interval = self::PERF_INTERVALS[$perfPeriod];
+            $query->join(
+                DB::raw($this->perfSubquery($interval)),
+                'i.id', '=', 'perf.instrument_id'
+            );
+            $query->addSelect('perf.pct_change');
+            $activeMetrics[] = 'pct_change';
+
+            [$min, $max] = self::PERF_DIRECTIONS[$perfDirection];
+            if ($min !== null) {
+                $query->where('perf.pct_change', '>=', $min);
+            }
+            if ($max !== null) {
+                $query->where('perf.pct_change', '<=', $max);
+            }
+        }
+
+        return [$query, $activeMetrics];
+    }
+
+    private function perfSubquery(string $interval): string
+    {
+        return "(
+            SELECT p1.instrument_id,
+                   CASE WHEN p2.close > 0 THEN ((p1.close - p2.close) / p2.close * 100) END AS pct_change
+            FROM (
+                SELECT DISTINCT ON (instrument_id) instrument_id, close, time AS latest_date
+                FROM prices_daily WHERE close IS NOT NULL
+                ORDER BY instrument_id, time DESC
+            ) p1
+            LEFT JOIN LATERAL (
+                SELECT close FROM prices_daily
+                WHERE instrument_id = p1.instrument_id
+                  AND close IS NOT NULL
+                  AND time <= p1.latest_date - interval '{$interval}'
+                ORDER BY time DESC LIMIT 1
+            ) p2 ON true
+            WHERE p2.close IS NOT NULL
+        ) AS perf";
+    }
+
     private function getFundamentalData(Instrument $instrument): array
     {
         return Cache::remember(
-            "fundamentals:{$instrument->id}",
+            "fundamentals:v2:{$instrument->id}",
             3600,
-            fn () => $this->buildFundamentalData($instrument)
+            fn () => $this->mergeFundamentals(
+                $this->buildFundamentalData($instrument),
+                $this->buildSimFinFundamentalData($instrument)
+            )
         );
+    }
+
+    private function buildSimFinFundamentalData(Instrument $instrument): array
+    {
+        $result = [];
+
+        $this->collectSimFinStatement(
+            $result,
+            'simfin_income_statement',
+            'income_statement',
+            self::SIMFIN_INCOME_LABELS,
+            $instrument->id
+        );
+        $this->collectSimFinStatement(
+            $result,
+            'simfin_balance_sheet',
+            'balance_sheet',
+            self::SIMFIN_BALANCE_LABELS,
+            $instrument->id
+        );
+        $this->collectSimFinStatement(
+            $result,
+            'simfin_cashflow',
+            'cash_flow_statement',
+            self::SIMFIN_CASHFLOW_LABELS,
+            $instrument->id
+        );
+
+        foreach ($result as $year => $node) {
+            $result[$year]['annual'] = $this->buildAnnualFromQuarters($node['quarters']);
+        }
+
+        return $result;
+    }
+
+    private function collectSimFinStatement(array &$result, string $table, string $statementKey, array $labelMap, int $instrumentId): void
+    {
+        $columns = array_merge(['fiscal_year', 'fiscal_period'], array_keys($labelMap));
+
+        $rows = DB::table($table)
+            ->where('instrument_id', $instrumentId)
+            ->select($columns)
+            ->get();
+
+        foreach ($rows as $row) {
+            $year = (string) $row->fiscal_year;
+            $period = strtoupper((string) $row->fiscal_period);
+            if (!preg_match('/^Q[1-4]$/', $period)) {
+                continue;
+            }
+
+            if (!isset($result[$year])) {
+                $result[$year] = [
+                    'annual' => [
+                        'balance_sheet' => [],
+                        'income_statement' => [],
+                        'cash_flow_statement' => [],
+                    ],
+                    'quarters' => [],
+                ];
+            }
+            if (!isset($result[$year]['quarters'][$period])) {
+                $result[$year]['quarters'][$period] = [
+                    'balance_sheet' => [],
+                    'income_statement' => [],
+                    'cash_flow_statement' => [],
+                ];
+            }
+
+            foreach ($labelMap as $col => $label) {
+                $val = $row->{$col} ?? null;
+                if ($val === null || $val === '') {
+                    continue;
+                }
+                $result[$year]['quarters'][$period][$statementKey][$label] = (float) $val;
+            }
+        }
+    }
+
+    private function buildAnnualFromQuarters(array $quarters): array
+    {
+        $annual = [
+            'balance_sheet' => [],
+            'income_statement' => [],
+            'cash_flow_statement' => [],
+        ];
+
+        $orderedKeys = ['Q4', 'Q3', 'Q2', 'Q1'];
+
+        // Balance sheet: latest available quarter (Q4 if present, else Q3, ...)
+        foreach ($orderedKeys as $q) {
+            if (!empty($quarters[$q]['balance_sheet'])) {
+                $annual['balance_sheet'] = $quarters[$q]['balance_sheet'];
+                break;
+            }
+        }
+
+        // Income + cash flow: sum all available quarters
+        foreach (['income_statement', 'cash_flow_statement'] as $sk) {
+            $sums = [];
+            foreach ($quarters as $qData) {
+                foreach ($qData[$sk] ?? [] as $label => $val) {
+                    $sums[$label] = ($sums[$label] ?? 0) + (float) $val;
+                }
+            }
+            $annual[$sk] = $sums;
+        }
+
+        return $annual;
+    }
+
+    private function mergeFundamentals(array $edgar, array $simfin): array
+    {
+        $merged = $edgar;
+
+        foreach ($simfin as $year => $node) {
+            if (!isset($merged[$year])) {
+                $merged[$year] = $node;
+                continue;
+            }
+
+            foreach (['balance_sheet', 'income_statement', 'cash_flow_statement'] as $sk) {
+                if (empty($merged[$year]['annual'][$sk])) {
+                    $merged[$year]['annual'][$sk] = $node['annual'][$sk];
+                }
+            }
+            foreach ($node['quarters'] as $q => $qData) {
+                if (!isset($merged[$year]['quarters'][$q])) {
+                    $merged[$year]['quarters'][$q] = $qData;
+                    continue;
+                }
+                foreach ($qData as $sk => $payload) {
+                    if (empty($merged[$year]['quarters'][$q][$sk])) {
+                        $merged[$year]['quarters'][$q][$sk] = $payload;
+                    }
+                }
+            }
+        }
+
+        return $merged;
     }
 
     private function buildFundamentalData(Instrument $instrument): array
@@ -230,7 +679,6 @@ class InstrumentController extends Controller
             $year = (string) $filing->fiscal_year;
             $isAnnual = $filing->filing_type === 'Y';
 
-            // Keep only data that matches the filing's own period
             $ownPeriod = $rows->filter(function ($row) use ($filing) {
                 if ($row->context_date !== null) {
                     return $row->context_date === $filing->period_end;
@@ -238,8 +686,6 @@ class InstrumentController extends Controller
                 return $row->period_end === $filing->period_end;
             });
 
-            // Deduplicate: same tag may appear for different sub-periods
-            // Annual → keep longest span (full year); Quarterly → keep shortest span (quarter only)
             $deduped = [];
             foreach ($ownPeriod as $row) {
                 $tag = $row->xbrl_tag;
@@ -256,7 +702,6 @@ class InstrumentController extends Controller
                 }
             }
 
-            // Classify each tag into a financial statement type
             $statements = [
                 'balance_sheet' => [],
                 'income_statement' => [],
