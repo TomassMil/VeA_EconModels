@@ -47,27 +47,40 @@
                 </div>
 
                 {{-- Stats (right, ~40%) --}}
-                <div class="lg:col-span-2 grid grid-cols-2 gap-4 content-center">
+                <div class="lg:col-span-2 grid grid-cols-2 lg:grid-cols-3 gap-4 content-center">
                     <div>
                         <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Portfeļa vērtība</p>
                         <p class="text-xl font-bold text-gray-900 mt-1">${{ number_format($summary->portfolio_value, 2) }}</p>
                     </div>
                     <div>
+                        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Brīvais kapitāls</p>
+                        <p class="text-xl font-bold text-gray-900 mt-1">${{ number_format($summary->free_capital, 2) }}</p>
+                    </div>
+                    <div title="Kopā iemaksāts mīnus izmaksāts">
+                        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Iemaksāts</p>
+                        <p class="text-xl font-bold text-gray-900 mt-1">${{ number_format($summary->net_deposits, 2) }}</p>
+                    </div>
+                    <div title="Atvērto pozīciju iegādes vērtība">
                         <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Investēts</p>
                         <p class="text-xl font-bold text-gray-900 mt-1">${{ number_format($summary->total_invested, 2) }}</p>
                     </div>
-                    <div>
-                        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Izmaiņas</p>
-                        <p class="text-xl font-bold mt-1 {{ $summary->total_change >= 0 ? 'text-green-600' : 'text-red-600' }}">
-                            {{ $summary->total_change >= 0 ? '+' : '' }}${{ number_format($summary->total_change, 2) }}
+                    <div title="Atvērto pozīciju peļņa/zaudējumi pret iegādes cenu">
+                        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Nerealizētā P&L</p>
+                        <p class="text-xl font-bold mt-1 {{ $summary->unrealized_pnl >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                            {{ $summary->unrealized_pnl >= 0 ? '+' : '' }}${{ number_format($summary->unrealized_pnl, 2) }}
                             <span class="text-xs font-medium">
-                                ({{ $summary->total_change_pct >= 0 ? '+' : '' }}{{ number_format($summary->total_change_pct, 2) }}%)
+                                ({{ $summary->unrealized_pnl_pct >= 0 ? '+' : '' }}{{ number_format($summary->unrealized_pnl_pct, 2) }}%)
                             </span>
                         </p>
                     </div>
-                    <div>
-                        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Brīvais kapitāls</p>
-                        <p class="text-xl font-bold text-gray-900 mt-1">${{ number_format($summary->free_capital, 2) }}</p>
+                    <div title="Portfeļa vērtība mīnus iemaksāts (realizētā + nerealizētā peļņa)">
+                        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Kopējā atdeve</p>
+                        <p class="text-xl font-bold mt-1 {{ $summary->total_return >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                            {{ $summary->total_return >= 0 ? '+' : '' }}${{ number_format($summary->total_return, 2) }}
+                            <span class="text-xs font-medium">
+                                ({{ $summary->total_return_pct >= 0 ? '+' : '' }}{{ number_format($summary->total_return_pct, 2) }}%)
+                            </span>
+                        </p>
                     </div>
                 </div>
             </div>
@@ -250,11 +263,24 @@
             <h2 class="text-base font-bold text-gray-900">Darījumu vēsture</h2>
             <p class="text-xs text-gray-500 mt-0.5">{{ $portfolio->name }} · {{ count($transactions) }} darījumi</p>
         </div>
-        <button type="button" id="close-ledger-btn" class="text-gray-400 hover:text-gray-700 transition-colors">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-        </button>
+        <div class="flex items-center gap-2">
+            @if (!$transactions->isEmpty())
+                <a href="{{ route('portfolios.exportTransactions', $portfolio) }}"
+                   class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                   title="Lejupielādēt CSV">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
+                    </svg>
+                    Eksportēt
+                </a>
+            @endif
+            <button type="button" id="close-ledger-btn" class="text-gray-400 hover:text-gray-700 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
     </header>
     <div class="flex-1 overflow-y-auto">
         @if ($transactions->isEmpty())

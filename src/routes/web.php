@@ -91,6 +91,7 @@ Route::middleware('auth')->group(function () use ($topics, $categories) {
     Route::get('/portfelis/{portfolio}', [PortfolioController::class, 'show'])->name('portfolios.show');
     Route::post('/portfelis/{portfolio}/add-instrument', [PortfolioController::class, 'addInstrument'])->name('portfolios.addInstrument');
     Route::post('/portfelis/{portfolio}/sell-instrument/{instrumentId}', [PortfolioController::class, 'sellInstrument'])->name('portfolios.sellInstrument');
+    Route::get('/portfelis/{portfolio}/transactions/export', [PortfolioController::class, 'exportTransactions'])->name('portfolios.exportTransactions');
     Route::delete('/portfelis/{portfolio}/remove-instrument/{instrumentId}', [PortfolioController::class, 'removeInstrument'])->name('portfolios.removeInstrument');
 
     Route::get('/models', function () use ($topics) {

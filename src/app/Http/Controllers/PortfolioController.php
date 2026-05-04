@@ -9,6 +9,7 @@ use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -197,6 +198,61 @@ class PortfolioController extends Controller
                 'i.ticker',
             ])
             ->get();
+    }
+
+    public function exportTransactions(Portfolio $portfolio): StreamedResponse
+    {
+        Gate::authorize('view', $portfolio);
+
+        $rows = DB::table('portfolio_transactions as pt')
+            ->leftJoin('instruments as i', 'i.id', '=', 'pt.instrument_id')
+            ->where('pt.portfolio_id', $portfolio->id)
+            ->orderBy('pt.transaction_date')
+            ->orderBy('pt.id')
+            ->select([
+                'pt.transaction_date',
+                'pt.type',
+                'i.ticker',
+                'i.company_name',
+                'pt.shares',
+                'pt.price_per_share',
+                'pt.amount',
+                'pt.currency',
+                'pt.note',
+                'pt.created_at',
+            ])
+            ->get();
+
+        $slug = preg_replace('/[^A-Za-z0-9_-]+/', '_', $portfolio->name);
+        $filename = "{$slug}_transactions_" . now()->format('Y-m-d') . '.csv';
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            // UTF-8 BOM so Excel opens Latvian characters correctly
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, [
+                'transaction_date', 'type', 'ticker', 'company_name',
+                'shares', 'price_per_share', 'amount', 'currency',
+                'note', 'created_at',
+            ]);
+            foreach ($rows as $r) {
+                fputcsv($out, [
+                    $r->transaction_date,
+                    $r->type,
+                    $r->ticker ?? '',
+                    $r->company_name ?? '',
+                    $r->shares,
+                    $r->price_per_share,
+                    $r->amount,
+                    $r->currency,
+                    $r->note ?? '',
+                    $r->created_at,
+                ]);
+            }
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
     public function addInstrument(Request $request, Portfolio $portfolio): JsonResponse
@@ -410,6 +466,11 @@ class PortfolioController extends Controller
             ->where('portfolio_id', $portfolio->id)
             ->sum('amount');
 
+        $netDeposits = (float) DB::table('portfolio_transactions')
+            ->where('portfolio_id', $portfolio->id)
+            ->whereIn('type', ['deposit', 'withdrawal'])
+            ->sum('amount');
+
         $costBasis = (float) $cards->sum('amount_invested');
 
         $marketValue = 0.0;
@@ -420,8 +481,14 @@ class PortfolioController extends Controller
         }
 
         $portfolioValue = $cash + $marketValue;
-        $totalChange = $marketValue - $costBasis;
-        $totalChangePct = $costBasis > 0 ? ($totalChange / $costBasis) * 100 : 0;
+
+        // Unrealized P&L on currently-open positions only
+        $unrealizedPnl = $marketValue - $costBasis;
+        $unrealizedPnlPct = $costBasis > 0 ? ($unrealizedPnl / $costBasis) * 100 : 0;
+
+        // Total return = portfolio value vs net deposits (realized + unrealized + cash gains)
+        $totalReturn = $portfolioValue - $netDeposits;
+        $totalReturnPct = $netDeposits > 0 ? ($totalReturn / $netDeposits) * 100 : 0;
 
         foreach ($cards as $card) {
             $marketWeight = ($card->current_close !== null && $card->shares > 0)
@@ -436,8 +503,11 @@ class PortfolioController extends Controller
             'portfolio_value' => $portfolioValue,
             'total_invested' => $costBasis,
             'total_current_value' => $marketValue,
-            'total_change' => $totalChange,
-            'total_change_pct' => $totalChangePct,
+            'net_deposits' => $netDeposits,
+            'unrealized_pnl' => $unrealizedPnl,
+            'unrealized_pnl_pct' => $unrealizedPnlPct,
+            'total_return' => $totalReturn,
+            'total_return_pct' => $totalReturnPct,
             'free_capital' => $cash,
             'currency' => $portfolio->currency,
         ];
