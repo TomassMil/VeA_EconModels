@@ -39,9 +39,12 @@ class PortfolioController extends Controller
             'free_capital' => 'required|numeric|min:0',
         ]);
 
+        $currency = 'USD';
+
         $portfolio = Portfolio::create([
             'user_id' => Auth::id(),
             'name' => $request->input('name'),
+            'currency' => $currency,
             'free_capital' => $request->input('free_capital'),
         ]);
 
@@ -52,7 +55,7 @@ class PortfolioController extends Controller
                 'type' => 'deposit',
                 'transaction_date' => now()->toDateString(),
                 'amount' => (float) $request->input('free_capital'),
-                'currency' => $portfolio->currency,
+                'currency' => $currency,
                 'note' => 'Initial deposit',
             ]);
         }
