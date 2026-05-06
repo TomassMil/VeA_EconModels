@@ -22,9 +22,6 @@
                 <a href="{{ route('instruments.index') }}" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
                     Instrumenti
                 </a>
-                <a href="{{ route('indexes.index') }}" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
-                    Indeksi
-                </a>
                 <a href="{{ route('portfolios.index') }}" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
                     Portfelis
                 </a>
@@ -67,7 +64,6 @@
                 <a href="{{ url('/') }}" class="block px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md">Sākums</a>
                 <a href="{{ route('models.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md">Modeļi</a>
                 <a href="{{ route('instruments.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md">Instrumenti</a>
-                <a href="{{ route('indexes.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md">Indeksi</a>
                 <a href="{{ route('portfolios.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md">Portfelis</a>
                 <a href="{{ route('about') }}" class="block px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md">Par projektu</a>
                 @auth

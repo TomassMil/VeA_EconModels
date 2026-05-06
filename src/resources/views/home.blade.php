@@ -34,16 +34,13 @@
 
         <!-- Tree Container -->
         <div class="overflow-x-auto overflow-y-visible py-8 flex justify-center">
-            <!-- This wrapper is the coordinate system for SVG + nodes -->
             <div id="treeWrap" class="relative min-w-max mx-auto inline-block">
-                <!-- SVG overlay (auto-drawn by JS so each line hits the exact node centers) -->
                 <svg id="treeSvg" class="absolute top-0 left-0 w-full h-full pointer-events-none" style="z-index: 0;"></svg>
 
-                <!-- Tree Structure -->
                 <div id="treeGrid" class="flex items-center space-x-32 relative" style="z-index: 1;">
 
                     <!-- Level 1: Root Node -->
-                    <div class="flex items-center" style="height: 800px;">
+                    <div class="flex items-center" style="height: 900px;">
                         <div
                             class="tree-node bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg px-8 py-4 shadow-lg"
                             data-node="root"
@@ -56,25 +53,24 @@
                     </div>
 
                     <!-- Level 2: Categories -->
-                    <div class="flex flex-col justify-center space-y-20" style="height: 800px;">
-                        <!-- 1. Laika rindas -->
+                    <div class="flex flex-col justify-center space-y-16" style="height: 900px;">
+                        <!-- 1. Fundamentālie dati -->
                         <a
-                            href="{{ route('category.show', 'laika-rindas') }}"
+                            href="{{ route('instruments.index') }}"
                             class="tree-node bg-white border-2 border-blue-400 rounded-lg px-6 py-4 shadow-md hover:border-blue-600 block"
                             data-node="cat-1"
                             data-type="category"
                             data-parent="root"
                             data-color="#3b82f6"
-                            data-search="1. Laika rindas Time Series Analysis"
+                            data-search="1. Fundamentālie dati instrumenti"
                         >
-                            <h3 class="font-bold text-gray-900">1. Laika rindas</h3>
-                            <p class="text-sm text-gray-600 mt-1">Time Series Analysis</p>
+                            <h3 class="font-bold text-gray-900">1. Fundamentālie dati</h3>
+                            <p class="text-sm text-gray-600 mt-1">Instrumentu saraksts un fundamentālā analīze</p>
                         </a>
 
                         <!-- 2. Laika rindu prognozēšana -->
-                        <a
-                            href="{{ route('category.show', 'laika-rindu-prognozesana') }}"
-                            class="tree-node bg-white border-2 border-green-400 rounded-lg px-6 py-4 shadow-md hover:border-green-600 block"
+                        <div
+                            class="tree-node bg-white border-2 border-green-400 rounded-lg px-6 py-4 shadow-md"
                             data-node="cat-2"
                             data-type="category"
                             data-parent="root"
@@ -83,187 +79,74 @@
                         >
                             <h3 class="font-bold text-gray-900">2. Laika rindu prognozēšana</h3>
                             <p class="text-sm text-gray-600 mt-1">Time Series Forecasting</p>
-                        </a>
+                        </div>
 
-                        <!-- 3. Makroekonomika -->
-                        <a
-                            href="{{ route('category.show', 'makroekonomika') }}"
-                            class="tree-node bg-white border-2 border-purple-400 rounded-lg px-6 py-4 shadow-md hover:border-purple-600 block"
+                        <!-- 3. Investīciju sistēmas -->
+                        <div
+                            class="tree-node bg-white border-2 border-purple-400 rounded-lg px-6 py-4 shadow-md"
                             data-node="cat-3"
                             data-type="category"
                             data-parent="root"
                             data-color="#a855f7"
-                            data-search="3. Makroekonomika Macroeconomics"
+                            data-search="3. Investīciju sistēmas valuation models"
                         >
-                            <h3 class="font-bold text-gray-900">3. Makroekonomika</h3>
-                            <p class="text-sm text-gray-600 mt-1">Macroeconomics</p>
-                        </a>
+                            <h3 class="font-bold text-gray-900">3. Investīciju sistēmas</h3>
+                            <p class="text-sm text-gray-600 mt-1">Vērtēšanas modeļi (50 nosaukti modeļi)</p>
+                        </div>
 
-                        <!-- 4. Ekonomikas izaugsme -->
+                        <!-- 4. Portfeļi -->
                         <a
-                            href="{{ route('category.show', 'ekonomikas-izaugsme') }}"
+                            href="{{ route('portfolios.index') }}"
                             class="tree-node bg-white border-2 border-orange-400 rounded-lg px-6 py-4 shadow-md hover:border-orange-600 block"
                             data-node="cat-4"
                             data-type="category"
                             data-parent="root"
                             data-color="#f97316"
-                            data-search="4. Ekonomikas izaugsme Economic Growth"
+                            data-search="4. Portfeļi portfolio"
                         >
-                            <h3 class="font-bold text-gray-900">4. Ekonomikas izaugsme</h3>
-                            <p class="text-sm text-gray-600 mt-1">Economic Growth</p>
+                            <h3 class="font-bold text-gray-900">4. Portfeļi</h3>
+                            <p class="text-sm text-gray-600 mt-1">Personīgo portfeļu pārvaldība</p>
                         </a>
                     </div>
 
                     <!-- Level 3: Subcategories -->
-                    <div class="flex flex-col justify-start space-y-3" style="height: 800px; padding-top: 20px;">
-                        <!-- 1.1 - 1.4 -->
-                        <a
-                            href="{{ route('topic.show', '1-1-regularas') }}"
-                            class="tree-node bg-blue-50 border border-blue-300 rounded-lg px-4 py-3 shadow-sm hover:bg-blue-100 block"
-                            data-node="sub-1-1"
-                            data-type="subcategory"
-                            data-parent="cat-1"
-                            data-color="#60a5fa"
-                            data-search="1.1 Regulāras"
-                        >
-                            <span class="text-sm font-semibold text-gray-800">1.1. Regulāras</span>
-                        </a>
+                    <div class="flex flex-col justify-start space-y-3" style="height: 900px; padding-top: 20px;">
 
-                        <a
-                            href="{{ route('topic.show', '1-2-stohastiskas') }}"
-                            class="tree-node bg-blue-50 border border-blue-300 rounded-lg px-4 py-3 shadow-sm hover:bg-blue-100 block"
-                            data-node="sub-1-2"
-                            data-type="subcategory"
-                            data-parent="cat-1"
-                            data-color="#60a5fa"
-                            data-search="1.2 Stohastiskas"
-                        >
-                            <span class="text-sm font-semibold text-gray-800">1.2. Stohastiskas</span>
-                        </a>
+                        {{-- Sub-branches under "2. Laika rindu prognozēšana" — featured tickers --}}
+                        @foreach ($featuredTickers as $ticker)
+                            @php $inst = $tickerInstruments->get($ticker); @endphp
+                            @if ($inst)
+                                <a
+                                    href="{{ route('instruments.show', $inst->id) }}"
+                                    class="tree-node bg-green-50 border border-green-300 rounded-lg px-4 py-3 shadow-sm hover:bg-green-100 block"
+                                    data-node="sub-2-{{ $loop->index + 1 }}"
+                                    data-type="subcategory"
+                                    data-parent="cat-2"
+                                    data-color="#4ade80"
+                                    data-search="{{ $ticker }} {{ $inst->company_name }}"
+                                >
+                                    <span class="text-sm font-semibold text-gray-800">{{ $inst->ticker }}</span>
+                                    <span class="text-xs text-gray-600 block mt-1">{{ $inst->company_name }}</span>
+                                </a>
+                            @endif
+                        @endforeach
 
-                        <a
-                            href="{{ route('topic.show', '1-3-haotiskas') }}"
-                            class="tree-node bg-blue-50 border border-blue-300 rounded-lg px-4 py-3 shadow-sm hover:bg-blue-100 block"
-                            data-node="sub-1-3"
-                            data-type="subcategory"
-                            data-parent="cat-1"
-                            data-color="#60a5fa"
-                            data-search="1.3 Haotiskas"
-                        >
-                            <span class="text-sm font-semibold text-gray-800">1.3. Haotiskas</span>
-                        </a>
+                        {{-- Sub-branches under "3. Investīciju sistēmas" — 6 valuation categories --}}
+                        @foreach ($valuationCategories as $catKey => $cat)
+                            <a
+                                href="{{ route('models.index') }}#{{ $catKey }}"
+                                class="tree-node bg-purple-50 border border-purple-300 rounded-lg px-4 py-3 shadow-sm hover:bg-purple-100 block"
+                                data-node="sub-3-{{ $loop->index + 1 }}"
+                                data-type="subcategory"
+                                data-parent="cat-3"
+                                data-color="#c084fc"
+                                data-search="{{ $cat['title'] }}"
+                            >
+                                <span class="text-sm font-semibold text-gray-800">{{ $cat['title'] }}</span>
+                                <span class="text-xs text-gray-600 block mt-1">{{ count($cat['models']) }} modeļi</span>
+                            </a>
+                        @endforeach
 
-                        <a
-                            href="{{ route('topic.show', '1-4-naudas-piedavajums') }}"
-                            class="tree-node bg-blue-50 border border-blue-300 rounded-lg px-4 py-3 shadow-sm hover:bg-blue-100 block"
-                            data-node="sub-1-4"
-                            data-type="subcategory"
-                            data-parent="cat-1"
-                            data-color="#60a5fa"
-                            data-search="1.4 P = α*R + γ*H + β*S α + β + γ = 1"
-                        >
-                            <span class="text-sm font-semibold text-gray-800">1.4. P = α*R + γ*H + β*S</span>
-                            <span class="text-xs text-gray-600 block mt-1">α + β + γ = 1</span>
-                        </a>
-
-                        <!-- 2.1 - 2.3 -->
-                        <a
-                            href="{{ route('topic.show', '2-1-trend-linija') }}"
-                            class="tree-node bg-green-50 border border-green-300 rounded-lg px-4 py-3 shadow-sm hover:bg-green-100 block"
-                            data-node="sub-2-1"
-                            data-type="subcategory"
-                            data-parent="cat-2"
-                            data-color="#4ade80"
-                            data-search="2.1 Trend līnija"
-                        >
-                            <span class="text-sm font-semibold text-gray-800">2.1. Trend līnija</span>
-                        </a>
-
-                        <a
-                            href="{{ route('topic.show', '2-2-hp-modelis') }}"
-                            class="tree-node bg-green-50 border border-green-300 rounded-lg px-4 py-3 shadow-sm hover:bg-green-100 block"
-                            data-node="sub-2-2"
-                            data-type="subcategory"
-                            data-parent="cat-2"
-                            data-color="#4ade80"
-                            data-search="2.2 HP modelis"
-                        >
-                            <span class="text-sm font-semibold text-gray-800">2.2. HP modelis</span>
-                        </a>
-
-                        <a
-                            href="{{ route('topic.show', '2-3-ssa') }}"
-                            class="tree-node bg-green-50 border border-green-300 rounded-lg px-4 py-3 shadow-sm hover:bg-green-100 block"
-                            data-node="sub-2-3"
-                            data-type="subcategory"
-                            data-parent="cat-2"
-                            data-color="#4ade80"
-                            data-search="2.3 SSA"
-                        >
-                            <span class="text-sm font-semibold text-gray-800">2.3. SSA</span>
-                        </a>
-
-                        <!-- 3.1 - 3.4 -->
-                        <a
-                            href="{{ route('topic.show', '3-1-keynes') }}"
-                            class="tree-node bg-purple-50 border border-purple-300 rounded-lg px-4 py-3 shadow-sm hover:bg-purple-100 block"
-                            data-node="sub-3-1"
-                            data-type="subcategory"
-                            data-parent="cat-3"
-                            data-color="#c084fc"
-                            data-search="3.1 Keynes"
-                        >
-                            <span class="text-sm font-semibold text-gray-800">3.1. Keynes</span>
-                        </a>
-
-                        <a
-                            href="{{ route('topic.show', '3-2-is-lm') }}"
-                            class="tree-node bg-purple-50 border border-purple-300 rounded-lg px-4 py-3 shadow-sm hover:bg-purple-100 block"
-                            data-node="sub-3-2"
-                            data-type="subcategory"
-                            data-parent="cat-3"
-                            data-color="#c084fc"
-                            data-search="3.2 IS-LM"
-                        >
-                            <span class="text-sm font-semibold text-gray-800">3.2. IS-LM</span>
-                        </a>
-
-                        <a
-                            href="{{ route('topic.show', '3-3-ret') }}"
-                            class="tree-node bg-purple-50 border border-purple-300 rounded-lg px-4 py-3 shadow-sm hover:bg-purple-100 block"
-                            data-node="sub-3-3"
-                            data-type="subcategory"
-                            data-parent="cat-3"
-                            data-color="#c084fc"
-                            data-search="3.3 RET"
-                        >
-                            <span class="text-sm font-semibold text-gray-800">3.3. RET</span>
-                        </a>
-
-                        <a
-                            href="{{ route('topic.show', '3-4-dsge-is') }}"
-                            class="tree-node bg-purple-50 border border-purple-300 rounded-lg px-4 py-3 shadow-sm hover:bg-purple-100 block"
-                            data-node="sub-3-4"
-                            data-type="subcategory"
-                            data-parent="cat-3"
-                            data-color="#c084fc"
-                            data-search="3.4 DSGE IS"
-                        >
-                            <span class="text-sm font-semibold text-gray-800">3.4. DSGE{IS}</span>
-                        </a>
-
-                        <!-- 4.1 Placeholder -->
-                        <a
-                            href="{{ route('topic.show', '4-1-placeholder') }}"
-                            class="tree-node bg-orange-50 border border-orange-300 rounded-lg px-4 py-3 shadow-sm hover:bg-orange-100 block"
-                            data-node="sub-4-1"
-                            data-type="subcategory"
-                            data-parent="cat-4"
-                            data-color="#fb923c"
-                            data-search="4.1 Placeholder"
-                        >
-                            <span class="text-sm font-semibold text-gray-800">4.1. (Placeholder)</span>
-                        </a>
                     </div>
 
                 </div>
@@ -294,7 +177,6 @@
         return wrap.querySelector(`[data-node="${CSS.escape(nodeId)}"]`);
     }
 
-    // Coordinates relative to wrap (NOT viewport)
     function rectRelToWrap(el) {
         const wrapRect = wrap.getBoundingClientRect();
         const r = el.getBoundingClientRect();
@@ -323,7 +205,6 @@
     }
 
     function setSvgSizeToContent() {
-        // Ensure SVG covers the full content area (including overflow)
         const w = Math.max(wrap.scrollWidth, wrap.clientWidth);
         const h = Math.max(wrap.scrollHeight, wrap.clientHeight);
         svg.setAttribute('width', w);
@@ -335,8 +216,6 @@
         const a = pointRightCenter(fromEl);
         const b = pointLeftCenter(toEl);
 
-        // Create a pleasant elbow/curve that always ends exactly at the subcategory center.
-        // Use horizontal "pull" based on distance.
         const dx = b.x - a.x;
         const pull = clamp(dx * 0.35, 60, 180);
 
@@ -357,7 +236,6 @@
         setSvgSizeToContent();
         svg.innerHTML = '';
 
-        // 1) root -> categories
         const root = getNodeEl('root');
         const cats = allNodes.filter(n => n.dataset.type === 'category');
 
@@ -368,7 +246,6 @@
             });
         }
 
-        // 2) categories -> subcategories
         const subs = allNodes.filter(n => n.dataset.type === 'subcategory');
         subs.forEach(sub => {
             if (!isVisible(sub)) return;
@@ -376,7 +253,6 @@
             const parent = parentId ? getNodeEl(parentId) : null;
             if (!isVisible(parent)) return;
 
-            // Lighter lines for sub-links (as you had)
             drawPath(parent, sub, sub.dataset.color || parent.dataset.color || '#94a3b8', 1.5, 0.65);
         });
     }
@@ -386,13 +262,12 @@
             .toString()
             .toLowerCase()
             .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, ''); // strip accents
+            .replace(/[̀-ͯ]/g, '');
     }
 
     function applySearch(qRaw) {
         const q = normalize(qRaw.trim());
 
-        // reset
         allNodes.forEach(el => {
             el.classList.remove('is-hidden', 'is-match');
         });
@@ -403,7 +278,6 @@
             return;
         }
 
-        // Decide matches on subcategories and categories (root is never a "match", just stays if anything matches)
         const matches = new Set();
 
         allNodes.forEach(el => {
@@ -413,14 +287,10 @@
             }
         });
 
-        // Ensure if a subcategory matches -> show its category + root
         const keep = new Set();
         keep.add('root');
-
-        // Keep all matching nodes
         matches.forEach(id => keep.add(id));
 
-        // For each kept subcategory, keep its parent category
         allNodes
             .filter(el => el.dataset.type === 'subcategory')
             .forEach(sub => {
@@ -428,7 +298,6 @@
                 if (sub.dataset.parent) keep.add(sub.dataset.parent);
             });
 
-        // Also: if a category matches, keep its children? (optional: yes)
         allNodes
             .filter(el => el.dataset.type === 'subcategory')
             .forEach(sub => {
@@ -438,12 +307,10 @@
                 }
             });
 
-        // Hide everything not in keep
         allNodes.forEach(el => {
             if (!keep.has(el.dataset.node)) el.classList.add('is-hidden');
         });
 
-        // Highlight actual textual matches
         matches.forEach(id => {
             const el = getNodeEl(id);
             if (el && !el.classList.contains('is-hidden')) el.classList.add('is-match');
@@ -458,7 +325,6 @@
             ? `Atrasts: ${visibleMatches.length}`
             : `Nekas netika atrasts`;
 
-        // Scroll to first visible match (nice UX)
         const first = visibleMatches.length ? getNodeEl(visibleMatches[0]) : null;
         if (first) {
             first.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
@@ -467,25 +333,20 @@
         redraw();
     }
 
-    // Redraw on resize + on horizontal scroll (because positions change relative to wrap)
     const ro = new ResizeObserver(() => redraw());
     ro.observe(wrap);
 
-    // scroll container is the parent with overflow-x-auto (closest one)
-    const scrollParent = wrap.parentElement; // the div with overflow-x-auto
+    const scrollParent = wrap.parentElement;
     if (scrollParent) {
         scrollParent.addEventListener('scroll', () => redraw(), { passive: true });
     }
 
-    // Initial draw after layout
     window.addEventListener('load', () => redraw());
     window.addEventListener('resize', () => redraw());
 
-    // Search hooks
     input.addEventListener('input', (e) => applySearch(e.target.value));
     btn.addEventListener('click', () => applySearch(input.value));
 
-    // Optional: ESC clears search
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             input.value = '';
