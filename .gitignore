@@ -35,6 +35,7 @@ id_rsa*
 # IDE / OS / logs
 .vscode/
 .idea/
+.claude/
 *.log
 .DS_Store
 Thumbs.db

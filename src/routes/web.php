@@ -126,9 +126,15 @@ Route::middleware('auth')->group(function () use ($valuationCategories, $feature
         ]);
     })->name('home');
 
-    Route::get('/instrumenti', [InstrumentController::class, 'index'])->name('instruments.index');
-    Route::get('/instrumenti/search', [InstrumentController::class, 'search'])->name('instruments.search');
-    Route::get('/instrumenti/filter', [InstrumentController::class, 'filter'])->name('instruments.filter');
+    // Fundamentālie dati — instrumentu saraksts ar fokusu uz fundamentālajiem rādītājiem
+    Route::get('/fundamentali', [InstrumentController::class, 'index'])->name('fundamentals.index');
+    Route::get('/fundamentali/search', [InstrumentController::class, 'search'])->name('instruments.search');
+    Route::get('/fundamentali/filter', [InstrumentController::class, 'filter'])->name('instruments.filter');
+
+    // Tehniskie dati — pagaidām tā pati instrumentu lista (vēlāk filtri/sortēšana ar tehnisko fokusu)
+    Route::get('/tehniskie', [InstrumentController::class, 'index'])->name('technical.index');
+
+    // Instrumenta detalizētā lapa (kopēja gan fundamentālajai, gan tehniskajai sadaļai)
     Route::get('/instrument/{instrument}', [InstrumentController::class, 'show'])->name('instruments.show');
 
     // Indeksi — lapa atstāta kodā, bet šobrīd nepieejama lietotājiem
@@ -146,13 +152,15 @@ Route::middleware('auth')->group(function () use ($valuationCategories, $feature
     Route::post('/portfelis/{portfolio}/add-instrument', [PortfolioController::class, 'addInstrument'])->name('portfolios.addInstrument');
     Route::post('/portfelis/{portfolio}/sell-instrument/{instrumentId}', [PortfolioController::class, 'sellInstrument'])->name('portfolios.sellInstrument');
     Route::get('/portfelis/{portfolio}/transactions/export', [PortfolioController::class, 'exportTransactions'])->name('portfolios.exportTransactions');
+    Route::get('/portfelis/{portfolio}/quantstats', [PortfolioController::class, 'quantstats'])->name('portfolios.quantstats');
     Route::delete('/portfelis/{portfolio}/remove-instrument/{instrumentId}', [PortfolioController::class, 'removeInstrument'])->name('portfolios.removeInstrument');
 
-    Route::get('/modeli', function () use ($valuationCategories) {
+    // Investīciju teorijas — vērtēšanas modeļu klasifikācija
+    Route::get('/teorijas', function () use ($valuationCategories) {
         return view('models', [
             'valuationCategories' => $valuationCategories,
         ]);
-    })->name('models.index');
+    })->name('theories.index');
 
     Route::get('/par-projektu', function () {
         return view('about');

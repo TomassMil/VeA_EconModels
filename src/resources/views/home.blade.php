@@ -54,45 +54,47 @@
 
                     <!-- Level 2: Categories -->
                     <div class="flex flex-col justify-center space-y-16" style="height: 900px;">
-                        <!-- 1. Fundamentālie dati -->
+                        <!-- 1. Investīciju teorijas -->
                         <a
-                            href="{{ route('instruments.index') }}"
-                            class="tree-node bg-white border-2 border-blue-400 rounded-lg px-6 py-4 shadow-md hover:border-blue-600 block"
+                            href="{{ route('theories.index') }}"
+                            class="tree-node bg-white border-2 border-purple-400 rounded-lg px-6 py-4 shadow-md hover:border-purple-600 block"
                             data-node="cat-1"
                             data-type="category"
                             data-parent="root"
-                            data-color="#3b82f6"
-                            data-search="1. Fundamentālie dati instrumenti"
+                            data-color="#a855f7"
+                            data-search="1. Investīciju teorijas valuation models"
                         >
-                            <h3 class="font-bold text-gray-900">1. Fundamentālie dati</h3>
-                            <p class="text-sm text-gray-600 mt-1">Instrumentu saraksts un fundamentālā analīze</p>
+                            <h3 class="font-bold text-gray-900">1. Investīciju teorijas</h3>
+                            <p class="text-sm text-gray-600 mt-1">Vērtēšanas modeļi (50 nosaukti modeļi)</p>
                         </a>
 
-                        <!-- 2. Laika rindu prognozēšana -->
-                        <div
-                            class="tree-node bg-white border-2 border-green-400 rounded-lg px-6 py-4 shadow-md"
+                        <!-- 2. Fundamentālie dati -->
+                        <a
+                            href="{{ route('fundamentals.index') }}"
+                            class="tree-node bg-white border-2 border-blue-400 rounded-lg px-6 py-4 shadow-md hover:border-blue-600 block"
                             data-node="cat-2"
                             data-type="category"
                             data-parent="root"
-                            data-color="#22c55e"
-                            data-search="2. Laika rindu prognozēšana Time Series Forecasting"
+                            data-color="#3b82f6"
+                            data-search="2. Fundamentālie dati instrumenti"
                         >
-                            <h3 class="font-bold text-gray-900">2. Laika rindu prognozēšana</h3>
-                            <p class="text-sm text-gray-600 mt-1">Time Series Forecasting</p>
-                        </div>
+                            <h3 class="font-bold text-gray-900">2. Fundamentālie dati</h3>
+                            <p class="text-sm text-gray-600 mt-1">Instrumentu saraksts un fundamentālā analīze</p>
+                        </a>
 
-                        <!-- 3. Investīciju sistēmas -->
-                        <div
-                            class="tree-node bg-white border-2 border-purple-400 rounded-lg px-6 py-4 shadow-md"
+                        <!-- 3. Tehniskie dati -->
+                        <a
+                            href="{{ route('technical.index') }}"
+                            class="tree-node bg-white border-2 border-green-400 rounded-lg px-6 py-4 shadow-md hover:border-green-600 block"
                             data-node="cat-3"
                             data-type="category"
                             data-parent="root"
-                            data-color="#a855f7"
-                            data-search="3. Investīciju sistēmas valuation models"
+                            data-color="#22c55e"
+                            data-search="3. Tehniskie dati cenas grafiks Engela trijstūris"
                         >
-                            <h3 class="font-bold text-gray-900">3. Investīciju sistēmas</h3>
-                            <p class="text-sm text-gray-600 mt-1">Vērtēšanas modeļi (50 nosaukti modeļi)</p>
-                        </div>
+                            <h3 class="font-bold text-gray-900">3. Tehniskie dati</h3>
+                            <p class="text-sm text-gray-600 mt-1">Cenas grafiki un Engela trijstūris</p>
+                        </a>
 
                         <!-- 4. Portfeļi -->
                         <a
@@ -102,26 +104,42 @@
                             data-type="category"
                             data-parent="root"
                             data-color="#f97316"
-                            data-search="4. Portfeļi portfolio"
+                            data-search="4. Portfeļi portfolio risks peļņa QuantStats"
                         >
                             <h3 class="font-bold text-gray-900">4. Portfeļi</h3>
-                            <p class="text-sm text-gray-600 mt-1">Personīgo portfeļu pārvaldība</p>
+                            <p class="text-sm text-gray-600 mt-1">Personīgo portfeļu pārvaldība un riska/peļņas analīze</p>
                         </a>
                     </div>
 
                     <!-- Level 3: Subcategories -->
                     <div class="flex flex-col justify-start space-y-3" style="height: 900px; padding-top: 20px;">
 
-                        {{-- Sub-branches under "2. Laika rindu prognozēšana" — featured tickers --}}
+                        {{-- Sub-branches under "1. Investīciju teorijas" — 6 valuation categories --}}
+                        @foreach ($valuationCategories as $catKey => $cat)
+                            <a
+                                href="{{ route('theories.index') }}#{{ $catKey }}"
+                                class="tree-node bg-purple-50 border border-purple-300 rounded-lg px-4 py-3 shadow-sm hover:bg-purple-100 block"
+                                data-node="sub-1-{{ $loop->index + 1 }}"
+                                data-type="subcategory"
+                                data-parent="cat-1"
+                                data-color="#c084fc"
+                                data-search="{{ $cat['title'] }}"
+                            >
+                                <span class="text-sm font-semibold text-gray-800">{{ $cat['title'] }}</span>
+                                <span class="text-xs text-gray-600 block mt-1">{{ count($cat['models']) }} modeļi</span>
+                            </a>
+                        @endforeach
+
+                        {{-- Sub-branches under "3. Tehniskie dati" — featured tickers --}}
                         @foreach ($featuredTickers as $ticker)
                             @php $inst = $tickerInstruments->get($ticker); @endphp
                             @if ($inst)
                                 <a
                                     href="{{ route('instruments.show', $inst->id) }}"
                                     class="tree-node bg-green-50 border border-green-300 rounded-lg px-4 py-3 shadow-sm hover:bg-green-100 block"
-                                    data-node="sub-2-{{ $loop->index + 1 }}"
+                                    data-node="sub-3-{{ $loop->index + 1 }}"
                                     data-type="subcategory"
-                                    data-parent="cat-2"
+                                    data-parent="cat-3"
                                     data-color="#4ade80"
                                     data-search="{{ $ticker }} {{ $inst->company_name }}"
                                 >
@@ -129,22 +147,6 @@
                                     <span class="text-xs text-gray-600 block mt-1">{{ $inst->company_name }}</span>
                                 </a>
                             @endif
-                        @endforeach
-
-                        {{-- Sub-branches under "3. Investīciju sistēmas" — 6 valuation categories --}}
-                        @foreach ($valuationCategories as $catKey => $cat)
-                            <a
-                                href="{{ route('models.index') }}#{{ $catKey }}"
-                                class="tree-node bg-purple-50 border border-purple-300 rounded-lg px-4 py-3 shadow-sm hover:bg-purple-100 block"
-                                data-node="sub-3-{{ $loop->index + 1 }}"
-                                data-type="subcategory"
-                                data-parent="cat-3"
-                                data-color="#c084fc"
-                                data-search="{{ $cat['title'] }}"
-                            >
-                                <span class="text-sm font-semibold text-gray-800">{{ $cat['title'] }}</span>
-                                <span class="text-xs text-gray-600 block mt-1">{{ count($cat['models']) }} modeļi</span>
-                            </a>
                         @endforeach
 
                     </div>

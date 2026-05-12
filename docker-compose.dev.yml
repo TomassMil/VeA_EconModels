@@ -1,4 +1,8 @@
-services:      
+services:
+  app:
+    volumes:
+      - ./scripts:/var/www/scripts:ro
+
   nginx:
     ports:
       - "8080:80"

@@ -3,8 +3,8 @@
 @section('content')
 <div class="py-10">
     <div class="w-[90%] max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
-        <a href="{{ route('instruments.index') }}" class="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 mb-4">
-            ← Atpakaļ uz Instrumenti
+        <a href="{{ url()->previous() }}" class="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 mb-4">
+            ← Atpakaļ
         </a>
 
         <div class="mb-8 flex flex-wrap items-start justify-between gap-4">

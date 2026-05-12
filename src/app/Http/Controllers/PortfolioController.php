@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Portfolio;
 use App\Models\PortfolioTransaction;
 use App\Services\ChartService;
+use App\Services\Risk\PortfolioReturnCalculator;
+use App\Services\Risk\RiskCalculator;
 use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -17,18 +19,39 @@ use Illuminate\View\View;
 
 class PortfolioController extends Controller
 {
-    public function __construct(private ChartService $chartService) {}
+    public function __construct(
+        private ChartService $chartService,
+        private RiskCalculator $riskCalculator,
+        private PortfolioReturnCalculator $returnCalculator,
+    ) {}
 
 
-    public function index(): View
+    public function index(Request $request): View
     {
+        $riskDays = (int) $request->query('risk_days', RiskCalculator::DEFAULT_DAYS);
+        if (! in_array($riskDays, [30, 60, 90, 180, 365], true)) {
+            $riskDays = RiskCalculator::DEFAULT_DAYS;
+        }
+
         $portfolios = Portfolio::where('user_id', Auth::id())
             ->withCount('instruments')
             ->orderByDesc('updated_at')
             ->get();
 
+        $scatterPoints = $portfolios->map(function (Portfolio $p) use ($riskDays) {
+            return [
+                'id' => $p->id,
+                'name' => $p->name,
+                'risk' => $this->riskCalculator->portfolioRisk($p, $riskDays),
+                'return' => $this->returnCalculator->totalReturn($p),
+            ];
+        })->filter(fn ($pt) => $pt['risk'] !== null && $pt['return'] !== null)
+          ->values();
+
         return view('portfolios.index', [
             'portfolios' => $portfolios,
+            'scatterPoints' => $scatterPoints,
+            'riskDays' => $riskDays,
         ]);
     }
 
@@ -461,6 +484,75 @@ class PortfolioController extends Controller
         }
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Ģenerē QuantStats HTML atskaiti portfeļa veiktspējai.
+     * Izsauc Python skriptu, kas raksta HTML uz storage/app/quantstats/.
+     */
+    public function quantstats(Request $request, Portfolio $portfolio)
+    {
+        Gate::authorize('view', $portfolio);
+
+        $download = $request->boolean('download');
+
+        $outDir = storage_path('app/quantstats');
+        if (! is_dir($outDir)) {
+            mkdir($outDir, 0755, true);
+        }
+        $outPath = "{$outDir}/portfolio_{$portfolio->id}.html";
+
+        $script = base_path('../scripts/generate_quantstats.py');
+        if (! file_exists($script)) {
+            // Container path mapping: project mounted at /var/www/html, scripts pie /var/www/scripts
+            $script = '/var/www/scripts/generate_quantstats.py';
+        }
+
+        $mplCacheDir = storage_path('app/quantstats/.matplotlib');
+        if (! is_dir($mplCacheDir)) {
+            mkdir($mplCacheDir, 0755, true);
+        }
+
+        $env = [
+            'DB_HOST' => config('database.connections.pgsql.host'),
+            'DB_PORT' => (string) config('database.connections.pgsql.port'),
+            'DB_DATABASE' => config('database.connections.pgsql.database'),
+            'DB_USERNAME' => config('database.connections.pgsql.username'),
+            'DB_PASSWORD' => config('database.connections.pgsql.password'),
+            'MPLCONFIGDIR' => $mplCacheDir,
+            'HOME' => storage_path('app/quantstats'),
+        ];
+
+        $envPrefix = '';
+        foreach ($env as $k => $v) {
+            $envPrefix .= $k . '=' . escapeshellarg((string) $v) . ' ';
+        }
+
+        $cmd = $envPrefix . 'python3 ' . escapeshellarg($script)
+            . ' ' . escapeshellarg((string) $portfolio->id)
+            . ' ' . escapeshellarg($outPath)
+            . ' 2>&1';
+
+        exec($cmd, $output, $exitCode);
+
+        if ($exitCode !== 0 || ! file_exists($outPath)) {
+            return response()->json([
+                'error' => 'QuantStats ģenerēšana neizdevās',
+                'detail' => implode("\n", $output),
+            ], 500);
+        }
+
+        $html = file_get_contents($outPath);
+
+        if ($download) {
+            $slug = preg_replace('/[^A-Za-z0-9_-]+/', '_', $portfolio->name);
+            return response($html, 200, [
+                'Content-Type' => 'text/html; charset=UTF-8',
+                'Content-Disposition' => 'attachment; filename="' . $slug . '_quantstats.html"',
+            ]);
+        }
+
+        return response($html, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
     }
 
     private function buildSummary(Portfolio $portfolio, $cards): object

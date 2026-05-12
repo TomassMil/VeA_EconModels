@@ -4,7 +4,7 @@
 <div class="py-10">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="mb-10">
-            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">Investīciju sistēmas — vērtēšanas modeļi</h1>
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">Investīciju teorijas — vērtēšanas modeļi</h1>
             <p class="text-gray-600 mt-2 max-w-3xl">
                 50 nosaukti akadēmiskie modeļi, sadalīti 6 kategorijās. Katrs modelis ar autoru, gadu un īsu pielietojuma aprakstu.
             </p>

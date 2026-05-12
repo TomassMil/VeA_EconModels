@@ -130,7 +130,7 @@ class InstrumentPagesTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $response = $this->get(route('instruments.index'));
+        $response = $this->get(route('fundamentals.index'));
 
         $response->assertOk();
         $response->assertDontSee('Uzņēmuma nosaukums nav pieejams');

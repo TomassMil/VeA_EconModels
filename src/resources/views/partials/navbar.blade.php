@@ -16,14 +16,17 @@
                 <a href="{{ url('/') }}" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
                     Sākums
                 </a>
-                <a href="{{ route('models.index') }}" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
-                    Modeļi
+                <a href="{{ route('theories.index') }}" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
+                    Investīciju teorijas
                 </a>
-                <a href="{{ route('instruments.index') }}" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
-                    Instrumenti
+                <a href="{{ route('fundamentals.index') }}" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
+                    Fundamentālie dati
+                </a>
+                <a href="{{ route('technical.index') }}" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
+                    Tehniskie dati
                 </a>
                 <a href="{{ route('portfolios.index') }}" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
-                    Portfelis
+                    Portfeļi
                 </a>
                 <a href="{{ route('about') }}" class="text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 text-sm font-medium">
                     Par projektu
@@ -62,9 +65,10 @@
         <div id="mobile-menu" class="hidden md:hidden pb-4 border-t border-gray-100">
             <div class="pt-3 space-y-1">
                 <a href="{{ url('/') }}" class="block px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md">Sākums</a>
-                <a href="{{ route('models.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md">Modeļi</a>
-                <a href="{{ route('instruments.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md">Instrumenti</a>
-                <a href="{{ route('portfolios.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md">Portfelis</a>
+                <a href="{{ route('theories.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md">Investīciju teorijas</a>
+                <a href="{{ route('fundamentals.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md">Fundamentālie dati</a>
+                <a href="{{ route('technical.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md">Tehniskie dati</a>
+                <a href="{{ route('portfolios.index') }}" class="block px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md">Portfeļi</a>
                 <a href="{{ route('about') }}" class="block px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md">Par projektu</a>
                 @auth
                     <form method="POST" action="{{ route('logout') }}" class="pt-2 border-t border-gray-100 mt-2">
