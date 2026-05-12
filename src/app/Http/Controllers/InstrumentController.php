@@ -277,12 +277,21 @@ class InstrumentController extends Controller
             ? \App\Models\Portfolio::where('user_id', Auth::id())->orderBy('name')->get(['id', 'name', 'free_capital'])
             : collect();
 
+        $latestInstrumentDate = DB::table('prices_daily')
+            ->where('instrument_id', $instrument->id)
+            ->whereNotNull('close')
+            ->max('time');
+        $latestInstrumentDate = $latestInstrumentDate
+            ? \Illuminate\Support\Carbon::parse($latestInstrumentDate)->toDateString()
+            : null;
+
         return view('instruments.show', [
             'instrument' => $instrument,
             'priceSeries' => $priceSeries,
             'availableFundamentalYears' => $availableFundamentalYears,
             'fundamentalData' => $fundamentalData,
             'userPortfolios' => $userPortfolios,
+            'latestInstrumentDate' => $latestInstrumentDate,
         ]);
     }
 

@@ -9,16 +9,18 @@ class PortfolioPolicy
 {
     public function view(User $user, Portfolio $portfolio): bool
     {
-        return $user->id === $portfolio->user_id;
+        // System portfolios (model backtests) are visible to all authenticated users
+        return $portfolio->is_system || $user->id === $portfolio->user_id;
     }
 
     public function update(User $user, Portfolio $portfolio): bool
     {
-        return $user->id === $portfolio->user_id;
+        // Sistēmas portfeļus rediģēt nedrīkst neviens — tie tiek pārģenerēti caur backtest wizard
+        return ! $portfolio->is_system && $user->id === $portfolio->user_id;
     }
 
     public function delete(User $user, Portfolio $portfolio): bool
     {
-        return $user->id === $portfolio->user_id;
+        return ! $portfolio->is_system && $user->id === $portfolio->user_id;
     }
 }

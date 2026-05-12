@@ -47,23 +47,45 @@ class PortfolioReturnCalculator
 
     /**
      * Pašreizējās holdingu tirgus vērtības summa.
+     *
+     * Optimizēts: viens vaicājums ar DISTINCT ON + time-bound logs TimescaleDB chunk pruning.
      */
     public function currentMarketValue(Portfolio $portfolio): float
     {
-        $rows = DB::table('portfolio_instrument as pi')
-            ->leftJoin('prices_daily as pd', function ($join) {
-                $join->on('pd.instrument_id', '=', 'pi.instrument_id')
-                    ->whereRaw('pd.time = (SELECT MAX(p.time) FROM prices_daily p WHERE p.instrument_id = pi.instrument_id AND p.close IS NOT NULL)');
-            })
-            ->where('pi.portfolio_id', $portfolio->id)
-            ->where('pi.shares', '>', 0)
-            ->select(['pi.shares', 'pd.close'])
-            ->get();
+        $holdings = DB::table('portfolio_instrument')
+            ->where('portfolio_id', $portfolio->id)
+            ->where('shares', '>', 0)
+            ->pluck('shares', 'instrument_id');
+
+        if ($holdings->isEmpty()) {
+            return 0.0;
+        }
+
+        $ids = $holdings->keys()->all();
+        $idsArray = '{' . implode(',', $ids) . '}';
+
+        // Izmantojam datu pēdējo datumu, nevis now() — dati var beigties agrāk par šodienu.
+        $latestDataTime = DB::table('prices_daily')->max('time');
+        if ($latestDataTime === null) {
+            return 0.0;
+        }
+        $windowStart = \Carbon\Carbon::parse($latestDataTime)->subDays(60)->toDateString();
+
+        $priceRows = DB::select(
+            'SELECT DISTINCT ON (instrument_id) instrument_id, close
+             FROM prices_daily
+             WHERE instrument_id = ANY(?)
+               AND close IS NOT NULL
+               AND time >= ?
+             ORDER BY instrument_id, time DESC',
+            [$idsArray, $windowStart]
+        );
 
         $total = 0.0;
-        foreach ($rows as $r) {
-            if ($r->close !== null) {
-                $total += (float) $r->shares * (float) $r->close;
+        foreach ($priceRows as $r) {
+            $iid = (int) $r->instrument_id;
+            if (isset($holdings[$iid])) {
+                $total += (float) $holdings[$iid] * (float) $r->close;
             }
         }
 

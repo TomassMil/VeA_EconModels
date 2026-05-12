@@ -33,24 +33,46 @@ class PortfolioController extends Controller
             $riskDays = RiskCalculator::DEFAULT_DAYS;
         }
 
-        $portfolios = Portfolio::where('user_id', Auth::id())
+        // Personīgais saraksts — tikai lietotāja portfeļi (bez sistēmas)
+        $personalPortfolios = Portfolio::forUser(Auth::id())
             ->withCount('instruments')
             ->orderByDesc('updated_at')
             ->get();
 
-        $scatterPoints = $portfolios->map(function (Portfolio $p) use ($riskDays) {
+        // Sistēmas portfeļi (modeļu backtest rezultāti) — redzami visiem uz scatter plot
+        $systemPortfolios = Portfolio::system()
+            ->withCount('instruments')
+            ->orderBy('name')
+            ->get();
+
+        $buildPoint = function (Portfolio $p, string $category) use ($riskDays) {
             return [
                 'id' => $p->id,
                 'name' => $p->name,
+                'description' => $p->description,
+                'category' => $category,    // 'personal' | 'system' | 'index'
                 'risk' => $this->riskCalculator->portfolioRisk($p, $riskDays),
                 'return' => $this->returnCalculator->totalReturn($p),
             ];
-        })->filter(fn ($pt) => $pt['risk'] !== null && $pt['return'] !== null)
-          ->values();
+        };
+
+        // Indeksu portfeļi — sistēmas portfeļi, kuru apraksts sākas ar "INDEX:" prefiksu
+        $indexPortfolios = $systemPortfolios->filter(fn ($p) => str_starts_with((string) $p->description, 'INDEX:'));
+        $modelPortfolios = $systemPortfolios->reject(fn ($p) => str_starts_with((string) $p->description, 'INDEX:'));
+
+        $scatterPoints = $personalPortfolios->map(fn ($p) => $buildPoint($p, 'personal'))
+            ->concat($modelPortfolios->map(fn ($p) => $buildPoint($p, 'system')))
+            ->concat($indexPortfolios->map(fn ($p) => $buildPoint($p, 'index')))
+            ->filter(fn ($pt) => $pt['risk'] !== null && $pt['return'] !== null)
+            ->values();
+
+        $latestDataDate = DB::table('prices_daily')->max('time');
 
         return view('portfolios.index', [
-            'portfolios' => $portfolios,
+            'portfolios' => $personalPortfolios,
+            'systemPortfolios' => $systemPortfolios,
             'scatterPoints' => $scatterPoints,
+            'latestDataDate' => $latestDataDate ? \Carbon\Carbon::parse($latestDataDate)->toDateString() : null,
             'riskDays' => $riskDays,
         ]);
     }
@@ -63,25 +85,32 @@ class PortfolioController extends Controller
         ]);
 
         $currency = 'USD';
+        $freeCapital = (float) $request->input('free_capital');
 
-        $portfolio = Portfolio::create([
-            'user_id' => Auth::id(),
-            'name' => $request->input('name'),
-            'currency' => $currency,
-            'free_capital' => $request->input('free_capital'),
-        ]);
-
-        if ((float) $request->input('free_capital') > 0) {
-            PortfolioTransaction::create([
-                'portfolio_id' => $portfolio->id,
-                'instrument_id' => null,
-                'type' => 'deposit',
-                'transaction_date' => now()->toDateString(),
-                'amount' => (float) $request->input('free_capital'),
+        // Atomic: ja deposit transakcijas izveide neizdodas, atritina arī portfeļa izveidi.
+        // Šis novērš orphan portfeļus (free_capital DB, bet bez deposit transakcijas ledger).
+        $portfolio = DB::transaction(function () use ($request, $currency, $freeCapital) {
+            $portfolio = Portfolio::create([
+                'user_id' => Auth::id(),
+                'name' => $request->input('name'),
                 'currency' => $currency,
-                'note' => 'Initial deposit',
+                'free_capital' => $freeCapital,
             ]);
-        }
+
+            if ($freeCapital > 0) {
+                PortfolioTransaction::create([
+                    'portfolio_id' => $portfolio->id,
+                    'instrument_id' => null,
+                    'type' => 'deposit',
+                    'transaction_date' => now()->toDateString(),
+                    'amount' => $freeCapital,
+                    'currency' => $currency,
+                    'note' => 'Initial deposit',
+                ]);
+            }
+
+            return $portfolio;
+        });
 
         return redirect()->route('portfolios.show', $portfolio);
     }
@@ -97,6 +126,8 @@ class PortfolioController extends Controller
 
         $chart = $this->chartService->buildPortfolioSeries($portfolio);
         $transactions = $this->loadTransactions($portfolio);
+        $latestDataDate = DB::table('prices_daily')->max('time');
+        $latestDataDate = $latestDataDate ? \Carbon\Carbon::parse($latestDataDate)->toDateString() : null;
 
         if ($instruments->isEmpty()) {
             return view('portfolios.show', [
@@ -105,6 +136,7 @@ class PortfolioController extends Controller
                 'summary' => $this->buildSummary($portfolio, collect()),
                 'chart' => $chart,
                 'transactions' => $transactions,
+                'latestDataDate' => $latestDataDate,
             ]);
         }
 
@@ -201,6 +233,7 @@ class PortfolioController extends Controller
             'summary' => $summary,
             'chart' => $chart,
             'transactions' => $transactions,
+            'latestDataDate' => $latestDataDate,
         ]);
     }
 
@@ -288,20 +321,39 @@ class PortfolioController extends Controller
         $request->validate([
             'instrument_id' => 'required|integer|exists:instruments,id',
             'amount' => 'required|numeric|min:0.01',
+            'transaction_date' => 'nullable|date|before_or_equal:today',
         ]);
 
         $requestedAmount = (string) $request->input('amount');
         $instrumentId = (int) $request->input('instrument_id');
+        $transactionDate = $request->input('transaction_date') ?: now()->toDateString();
 
-        $price = DB::table('prices_daily')
+        // Find closest available trading-day price at or before the requested date
+        $priceRow = DB::table('prices_daily')
             ->where('instrument_id', $instrumentId)
             ->whereNotNull('close')
+            ->where('time', '<=', $transactionDate)
             ->orderByDesc('time')
-            ->value('close');
+            ->first(['time', 'close']);
 
-        if (!$price) {
-            return response()->json(['error' => 'Nav pieejama cena šim instrumentam.'], 422);
+        if (!$priceRow) {
+            return response()->json([
+                'error' => "Nav pieejama cena šim instrumentam datumā {$transactionDate} vai pirms tā.",
+            ], 422);
         }
+
+        // Atteicies, ja jaunākā pieejamā cena ir vairāk nekā 7 dienas pirms pieprasītā datuma.
+        // Tas novērš situāciju, kad lietotājs "nopērk" akciju 2025.g., bet cena ir no 2024.g.
+        $priceDate = \Carbon\Carbon::parse($priceRow->time)->toDateString();
+        $gapDays = \Carbon\Carbon::parse($transactionDate)->diffInDays($priceDate, true);
+        if ($gapDays > 7) {
+            return response()->json([
+                'error' => "Pārāk veca cena: jaunākā cena šim instrumentam ir {$priceDate} ({$gapDays} dienas pirms {$transactionDate}). "
+                         . "Izvēlies datumu līdz " . \Carbon\Carbon::parse($priceRow->time)->addDays(7)->toDateString() . " vai citu instrumentu.",
+            ], 422);
+        }
+
+        $price = $priceRow->close;
 
         $priceStr = (string) $price;
         $shares = bcdiv($requestedAmount, $priceStr, 3);
@@ -312,7 +364,7 @@ class PortfolioController extends Controller
         $actualCost = Money::mul($shares, $priceStr, Money::SCALE_CASH);
 
         try {
-            DB::transaction(function () use ($portfolio, $instrumentId, $shares, $priceStr, $actualCost) {
+            DB::transaction(function () use ($portfolio, $instrumentId, $shares, $priceStr, $actualCost, $transactionDate) {
                 $locked = Portfolio::where('id', $portfolio->id)->lockForUpdate()->first();
 
                 if (Money::gt($actualCost, $locked->free_capital)) {
@@ -337,7 +389,7 @@ class PortfolioController extends Controller
                     'portfolio_id' => $locked->id,
                     'instrument_id' => $instrumentId,
                     'type' => 'buy',
-                    'transaction_date' => now()->toDateString(),
+                    'transaction_date' => $transactionDate,
                     'shares' => $shares,
                     'price_per_share' => $priceStr,
                     'amount' => Money::neg($actualCost),
@@ -359,6 +411,7 @@ class PortfolioController extends Controller
 
         $request->validate([
             'shares' => 'required|numeric|min:0.001',
+            'transaction_date' => 'nullable|date|before_or_equal:today',
         ]);
 
         $sharesRequested = bcadd((string) $request->input('shares'), '0', 3);
@@ -366,16 +419,30 @@ class PortfolioController extends Controller
             return response()->json(['error' => 'Pārdošanas apjoms ir 0.'], 422);
         }
 
-        $currentPrice = DB::table('prices_daily')
+        $transactionDate = $request->input('transaction_date') ?: now()->toDateString();
+
+        $priceRow = DB::table('prices_daily')
             ->where('instrument_id', $instrumentId)
             ->whereNotNull('close')
+            ->where('time', '<=', $transactionDate)
             ->orderByDesc('time')
-            ->value('close');
+            ->first(['time', 'close']);
 
+        if ($priceRow) {
+            $gapDays = \Carbon\Carbon::parse($transactionDate)->diffInDays($priceRow->time, true);
+            if ($gapDays > 7) {
+                return response()->json([
+                    'error' => "Pārāk veca cena: jaunākā cena šim instrumentam ir " . \Carbon\Carbon::parse($priceRow->time)->toDateString()
+                             . " ({$gapDays} dienas pirms {$transactionDate}).",
+                ], 422);
+            }
+        }
+
+        $currentPrice = $priceRow ? $priceRow->close : null;
         $currentPriceStr = $currentPrice ? (string) $currentPrice : null;
 
         try {
-            DB::transaction(function () use ($portfolio, $instrumentId, $sharesRequested, $currentPriceStr) {
+            DB::transaction(function () use ($portfolio, $instrumentId, $sharesRequested, $currentPriceStr, $transactionDate) {
                 $locked = Portfolio::where('id', $portfolio->id)->lockForUpdate()->first();
 
                 $existing = $locked->instruments()->where('instrument_id', $instrumentId)->first();
@@ -400,7 +467,7 @@ class PortfolioController extends Controller
                     'portfolio_id' => $locked->id,
                     'instrument_id' => $instrumentId,
                     'type' => 'sell',
-                    'transaction_date' => now()->toDateString(),
+                    'transaction_date' => $transactionDate,
                     'shares' => Money::neg($sharesToSell, 3),
                     'price_per_share' => $currentPriceStr,
                     'amount' => $proceeds,
@@ -432,6 +499,23 @@ class PortfolioController extends Controller
         }
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Pilnībā izdzēš portfeli ar visām transakcijām un holdingiem.
+     */
+    public function destroy(Portfolio $portfolio): RedirectResponse
+    {
+        Gate::authorize('delete', $portfolio);
+
+        DB::transaction(function () use ($portfolio) {
+            $portfolio->instruments()->detach();
+            DB::table('portfolio_transactions')->where('portfolio_id', $portfolio->id)->delete();
+            $portfolio->delete();
+        });
+
+        return redirect()->route('portfolios.index')
+            ->with('success', "Portfelis '{$portfolio->name}' izdzēsts.");
     }
 
     public function removeInstrument(Portfolio $portfolio, int $instrumentId): JsonResponse

@@ -88,41 +88,56 @@
 
         {{-- Add Instrument --}}
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-8">
-            <div>
-                <h3 class="text-sm font-semibold text-gray-700 mb-3">Pievienot instrumentu</h3>
-                    <div class="flex gap-2">
-                        <div class="relative flex-1">
-                            <input
-                                type="text"
-                                id="add-instrument-search"
-                                placeholder="Meklēt pēc ticker vai nosaukuma..."
-                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-                                autocomplete="off"
-                            >
-                            <div id="add-instrument-results" class="absolute z-20 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 hidden max-h-48 overflow-y-auto"></div>
-                        </div>
-                        <input
-                            type="number"
-                            id="add-instrument-amount"
-                            placeholder="Summa ($)"
-                            min="0.01"
-                            step="0.01"
-                            class="w-28 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-                        >
-                        <button
-                            type="button"
-                            id="add-instrument-btn"
-                            disabled
-                            class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                        >
-                            Pievienot
-                        </button>
-                    </div>
-                    <p id="add-instrument-selected" class="text-xs text-gray-500 mt-1 hidden">
-                        Izvēlēts: <span class="font-medium text-gray-700"></span>
-                    </p>
-                    <p id="add-instrument-error" class="text-xs text-red-600 mt-1 hidden"></p>
+            <h3 class="text-sm font-semibold text-gray-700 mb-3">Pievienot instrumentu</h3>
+            <div class="flex flex-wrap gap-2 items-stretch">
+                <div class="relative flex-1 min-w-[200px]">
+                    <input
+                        type="text"
+                        id="add-instrument-search"
+                        placeholder="Meklēt pēc ticker vai nosaukuma..."
+                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                        autocomplete="off"
+                    >
+                    <div id="add-instrument-results" class="absolute z-20 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 hidden max-h-48 overflow-y-auto"></div>
+                </div>
+                <input
+                    type="number"
+                    id="add-instrument-amount"
+                    placeholder="Summa ($)"
+                    min="0.01"
+                    step="0.01"
+                    class="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                >
+                <input
+                    type="date"
+                    id="add-instrument-date"
+                    @if (!empty($latestDataDate)) max="{{ $latestDataDate }}" @endif
+                    title="Pirkuma datums. Maksimālais = pēdējais datums ar cenu datiem."
+                    class="w-44 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
+                >
+                <button
+                    type="button"
+                    id="add-instrument-btn"
+                    disabled
+                    class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                >
+                    Pievienot
+                </button>
             </div>
+            <div class="flex flex-wrap items-baseline gap-x-3 mt-1">
+                <p id="add-instrument-selected" class="text-xs text-gray-500 hidden">
+                    Izvēlēts: <span class="font-medium text-gray-700"></span>
+                </p>
+                <p class="text-[11px] text-amber-700">
+                    📅 Pirkuma datums:
+                    @if (!empty($latestDataDate))
+                        atļauts līdz <strong>{{ $latestDataDate }}</strong> (datu beigas). Atstāj tukšu = jaunākā pieejamā cena.
+                    @else
+                        atstāj tukšu = jaunākā pieejamā cena.
+                    @endif
+                </p>
+            </div>
+            <p id="add-instrument-error" class="text-xs text-red-600 mt-1 hidden"></p>
         </div>
 
         {{-- Instrument Cards --}}
@@ -381,6 +396,13 @@
             <button type="button" data-pct="100" class="sell-pct-btn flex-1 text-xs py-1.5 rounded border border-gray-300 bg-gray-50 hover:bg-gray-100 font-semibold">Visu</button>
         </div>
 
+        <div class="mt-3">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Datums (atstāj tukšu = šodiena)</label>
+            <input type="date" id="sell-date-input" max="{{ now()->toDateString() }}"
+                   class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
+            <p class="text-[10px] text-gray-400 mt-1">Backtestēšanai izvēlies vēsturisku datumu</p>
+        </div>
+
         <div class="mt-4 bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-sm flex items-baseline justify-between">
             <span class="text-emerald-700 font-medium">Saņemtā summa</span>
             <span class="text-emerald-700 font-bold">$<span id="sell-proceeds">0.00</span></span>
@@ -519,6 +541,7 @@
     const searchInput = document.getElementById('add-instrument-search');
     const searchResults = document.getElementById('add-instrument-results');
     const amountInput = document.getElementById('add-instrument-amount');
+    const dateInput = document.getElementById('add-instrument-date');
     const addBtn = document.getElementById('add-instrument-btn');
     const selectedLabel = document.getElementById('add-instrument-selected');
     const errorLabel = document.getElementById('add-instrument-error');
@@ -538,7 +561,7 @@
         }
 
         searchTimeout = setTimeout(() => {
-            fetch(`/instrumenti/search?q=${encodeURIComponent(q)}`)
+            fetch(`{{ route('instruments.search') }}?q=${encodeURIComponent(q)}`)
                 .then(r => r.json())
                 .then(json => {
                     const items = json.data || [];
@@ -589,10 +612,14 @@
         addBtn.disabled = true;
         addBtn.textContent = '...';
 
+        const addPayload = { instrument_id: selectedInstrument.id, amount: amount };
+        const txDate = dateInput?.value || null;
+        if (txDate) addPayload.transaction_date = txDate;
+
         fetch(`/portfelis/${portfolioId}/add-instrument`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
-            body: JSON.stringify({ instrument_id: selectedInstrument.id, amount: amount }),
+            body: JSON.stringify(addPayload),
         })
         .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
         .then(({ ok, data }) => {
@@ -641,6 +668,7 @@
     const sellSharesEl = document.getElementById('sell-current-shares');
     const sellPriceEl = document.getElementById('sell-current-price');
     const sellInput = document.getElementById('sell-shares-input');
+    const sellDateInput = document.getElementById('sell-date-input');
     const sellProceeds = document.getElementById('sell-proceeds');
     const sellError = document.getElementById('sell-error');
     const sellConfirmBtn = document.getElementById('sell-confirm-btn');
@@ -656,6 +684,7 @@
         sellPriceEl.textContent = state.price ? Number(state.price).toFixed(2) : '—';
         sellInput.value = state.shares.toFixed(3);
         sellInput.max = state.shares;
+        if (sellDateInput) sellDateInput.value = '';
         sellError.classList.add('hidden');
         sellConfirmBtn.disabled = false;
         sellConfirmBtn.textContent = 'Pārdot';
@@ -721,10 +750,14 @@
         sellConfirmBtn.disabled = true;
         sellConfirmBtn.textContent = '...';
 
+        const sellPayload = { shares: sh };
+        const sellDate = sellDateInput?.value || null;
+        if (sellDate) sellPayload.transaction_date = sellDate;
+
         fetch(`/portfelis/${portfolioId}/sell-instrument/${sellState.instrumentId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
-            body: JSON.stringify({ shares: sh }),
+            body: JSON.stringify(sellPayload),
         })
         .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
         .then(({ ok, data }) => {

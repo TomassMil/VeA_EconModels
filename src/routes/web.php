@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\BacktestController;
 use App\Http\Controllers\IndexController;
 use App\Http\Controllers\InstrumentController;
 use App\Http\Controllers\PortfolioController;
@@ -149,10 +150,16 @@ Route::middleware('auth')->group(function () use ($valuationCategories, $feature
     Route::get('/portfelis', [PortfolioController::class, 'index'])->name('portfolios.index');
     Route::post('/portfelis', [PortfolioController::class, 'store'])->name('portfolios.store');
     Route::get('/portfelis/{portfolio}', [PortfolioController::class, 'show'])->name('portfolios.show');
+    Route::delete('/portfelis/{portfolio}', [PortfolioController::class, 'destroy'])->name('portfolios.destroy');
     Route::post('/portfelis/{portfolio}/add-instrument', [PortfolioController::class, 'addInstrument'])->name('portfolios.addInstrument');
     Route::post('/portfelis/{portfolio}/sell-instrument/{instrumentId}', [PortfolioController::class, 'sellInstrument'])->name('portfolios.sellInstrument');
     Route::get('/portfelis/{portfolio}/transactions/export', [PortfolioController::class, 'exportTransactions'])->name('portfolios.exportTransactions');
     Route::get('/portfelis/{portfolio}/quantstats', [PortfolioController::class, 'quantstats'])->name('portfolios.quantstats');
+
+    // Backtest wizard — izveido portfeli no stratēģijas (modeļa)
+    Route::get('/backtests/create', [BacktestController::class, 'create'])->name('backtests.create');
+    Route::post('/backtests/preview', [BacktestController::class, 'preview'])->name('backtests.preview');
+    Route::post('/backtests', [BacktestController::class, 'store'])->name('backtests.store');
     Route::delete('/portfelis/{portfolio}/remove-instrument/{instrumentId}', [PortfolioController::class, 'removeInstrument'])->name('portfolios.removeInstrument');
 
     // Investīciju teorijas — vērtēšanas modeļu klasifikācija

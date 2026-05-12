@@ -82,7 +82,6 @@ class RiskCalculator
     public function portfolioRisk(Portfolio $portfolio, int $days = self::DEFAULT_DAYS): ?float
     {
         $holdings = DB::table('portfolio_instrument as pi')
-            ->join('instruments as i', 'i.id', '=', 'pi.instrument_id')
             ->where('pi.portfolio_id', $portfolio->id)
             ->where('pi.shares', '>', 0)
             ->select(['pi.instrument_id', 'pi.shares'])
@@ -93,33 +92,75 @@ class RiskCalculator
         }
 
         $instrumentIds = $holdings->pluck('instrument_id')->all();
+        $idsArray = '{' . implode(',', $instrumentIds) . '}';
 
-        $latestPrices = DB::table('prices_daily as p1')
-            ->whereIn('p1.instrument_id', $instrumentIds)
-            ->whereNotNull('p1.close')
-            ->whereRaw('p1.time = (SELECT MAX(p2.time) FROM prices_daily p2 WHERE p2.instrument_id = p1.instrument_id AND p2.close IS NOT NULL)')
-            ->pluck('p1.close', 'p1.instrument_id');
+        // TimescaleDB chunk pruning: izmantojam datu PĒDĒJO datumu kā atskaiti (nevis now()),
+        // jo dati var beigties agrāk par šodienu. Logs = pēdējās 60 dienas no max(time).
+        $latestDataTime = DB::table('prices_daily')->max('time');
+        if ($latestDataTime === null) {
+            return null;
+        }
+        $windowStart = \Carbon\Carbon::parse($latestDataTime)->subDays(60)->toDateString();
+
+        // 1. Visu holdingu pēdējās 30+1 dienu cenas vienā vaicājumā (nevis 20 vaicājumi)
+        $allRows = DB::select(
+            'SELECT instrument_id, time, close, volume
+             FROM prices_daily
+             WHERE instrument_id = ANY(?)
+               AND close IS NOT NULL
+               AND time >= ?
+             ORDER BY instrument_id, time',
+            [$idsArray, $windowStart]
+        );
+
+        // Grupē pēc instrument_id
+        $byInstrument = [];
+        foreach ($allRows as $r) {
+            $byInstrument[(int) $r->instrument_id][] = $r;
+        }
 
         $weightedRiskSum = 0.0;
         $totalValue = 0.0;
 
         foreach ($holdings as $h) {
-            $price = (float) ($latestPrices[$h->instrument_id] ?? 0);
-            if ($price <= 0) {
+            $iid = (int) $h->instrument_id;
+            $rows = $byInstrument[$iid] ?? [];
+            if (count($rows) < 2) {
                 continue;
             }
 
-            $marketValue = (float) $h->shares * $price;
-            $instrument = Instrument::find($h->instrument_id);
-            if (! $instrument) {
+            // Tikai pēdējās $days + 1 dienas riska aprēķinam
+            $window = array_slice($rows, -($days + 1));
+            $negCount = 0;
+            $negVolume = 0.0;
+            $totalVolume = 0.0;
+            $totalDays = 0;
+
+            for ($i = 1; $i < count($window); $i++) {
+                $prev = (float) $window[$i - 1]->close;
+                $curr = (float) $window[$i]->close;
+                $vol = (float) ($window[$i]->volume ?? 0);
+                $totalDays++;
+                $totalVolume += $vol;
+                if ($curr < $prev) {
+                    $negCount++;
+                    $negVolume += $vol;
+                }
+            }
+            if ($totalDays === 0) {
                 continue;
             }
 
-            $instrRisk = $this->instrumentRisk($instrument, $days);
-            if ($instrRisk === null) {
+            $sRisk = $negCount / $totalDays;
+            $vRisk = $totalVolume > 0 ? ($negVolume / $totalVolume) : 0.0;
+            $instrRisk = self::S_WEIGHT * $sRisk + self::V_WEIGHT * $vRisk;
+
+            $latestPrice = (float) end($rows)->close;
+            if ($latestPrice <= 0) {
                 continue;
             }
 
+            $marketValue = (float) $h->shares * $latestPrice;
             $weightedRiskSum += $instrRisk * $marketValue;
             $totalValue += $marketValue;
         }

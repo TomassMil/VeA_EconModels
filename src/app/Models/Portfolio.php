@@ -12,15 +12,28 @@ class Portfolio extends Model
     protected $fillable = [
         'user_id',
         'name',
+        'description',
         'currency',
         'free_capital',
+        'is_system',
     ];
 
     protected function casts(): array
     {
         return [
             'free_capital' => 'decimal:2',
+            'is_system' => 'boolean',
         ];
+    }
+
+    public function scopeSystem($query)
+    {
+        return $query->where('is_system', true);
+    }
+
+    public function scopeForUser($query, ?int $userId)
+    {
+        return $query->where('user_id', $userId)->where('is_system', false);
     }
 
     public function user(): BelongsTo
