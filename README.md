@@ -175,3 +175,5 @@ Developed for academic purposes as a bachelor's thesis at Ventspils University o
 - **Author:** Toms Millers
 - **Institution:** Ventspils Augstskola
 - **Year:** 2025–2026
+
+This project is free for personal and non-commercial use. Commercial use requires permission. Read LICENSE for more.
