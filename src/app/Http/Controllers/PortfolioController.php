@@ -28,9 +28,9 @@ class PortfolioController extends Controller
 
     public function index(Request $request): View
     {
-        $riskDays = (int) $request->query('risk_days', RiskCalculator::DEFAULT_DAYS);
-        if (! in_array($riskDays, [30, 60, 90, 180, 365], true)) {
-            $riskDays = RiskCalculator::DEFAULT_DAYS;
+        $riskYears = (int) $request->query('risk_years', RiskCalculator::DEFAULT_YEARS);
+        if (! in_array($riskYears, [1, 2, 3, 5, 10], true)) {
+            $riskYears = RiskCalculator::DEFAULT_YEARS;
         }
 
         // Personīgais saraksts — tikai lietotāja portfeļi (bez sistēmas)
@@ -45,13 +45,13 @@ class PortfolioController extends Controller
             ->orderBy('name')
             ->get();
 
-        $buildPoint = function (Portfolio $p, string $category) use ($riskDays) {
+        $buildPoint = function (Portfolio $p, string $category) use ($riskYears) {
             return [
                 'id' => $p->id,
                 'name' => $p->name,
                 'description' => $p->description,
                 'category' => $category,    // 'personal' | 'system' | 'index'
-                'risk' => $this->riskCalculator->portfolioRisk($p, $riskDays),
+                'risk' => $this->riskCalculator->portfolioRisk($p, $riskYears),
                 'return' => $this->returnCalculator->totalReturn($p),
             ];
         };
@@ -72,8 +72,8 @@ class PortfolioController extends Controller
             'portfolios' => $personalPortfolios,
             'systemPortfolios' => $systemPortfolios,
             'scatterPoints' => $scatterPoints,
+            'riskYears' => $riskYears,
             'latestDataDate' => $latestDataDate ? \Carbon\Carbon::parse($latestDataDate)->toDateString() : null,
-            'riskDays' => $riskDays,
         ]);
     }
 
@@ -126,8 +126,10 @@ class PortfolioController extends Controller
 
         $chart = $this->chartService->buildPortfolioSeries($portfolio);
         $transactions = $this->loadTransactions($portfolio);
-        $latestDataDate = DB::table('prices_daily')->max('time');
-        $latestDataDate = $latestDataDate ? \Carbon\Carbon::parse($latestDataDate)->toDateString() : null;
+        $dataRange = DB::table('prices_daily')
+            ->selectRaw('MIN(time) as earliest, MAX(time) as latest')->first();
+        $earliestDataDate = $dataRange?->earliest ? \Carbon\Carbon::parse($dataRange->earliest)->toDateString() : null;
+        $latestDataDate = $dataRange?->latest ? \Carbon\Carbon::parse($dataRange->latest)->toDateString() : null;
 
         if ($instruments->isEmpty()) {
             return view('portfolios.show', [
@@ -136,6 +138,7 @@ class PortfolioController extends Controller
                 'summary' => $this->buildSummary($portfolio, collect()),
                 'chart' => $chart,
                 'transactions' => $transactions,
+                'earliestDataDate' => $earliestDataDate,
                 'latestDataDate' => $latestDataDate,
             ]);
         }
@@ -233,6 +236,7 @@ class PortfolioController extends Controller
             'summary' => $summary,
             'chart' => $chart,
             'transactions' => $transactions,
+            'earliestDataDate' => $earliestDataDate,
             'latestDataDate' => $latestDataDate,
         ]);
     }

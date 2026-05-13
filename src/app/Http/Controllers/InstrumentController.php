@@ -250,6 +250,120 @@ class InstrumentController extends Controller
         return response()->json(['data' => $instruments]);
     }
 
+    /**
+     * Fundamentālie dati — app-shell layout, vidējā kolonna ar screeneri.
+     * Bez izvēlēta instrumenta — labajā kolonnā welcome.
+     */
+    public function fundamentalIndex(): View
+    {
+        return view('instruments.screener-fundamental', [
+            'instrument' => null,
+        ] + $this->screenerData());
+    }
+
+    /**
+     * Fundamentālie dati ar izvēlētu instrumentu — labajā kolonnā fundamentālie dati.
+     * Ja AJAX (X-Right-Only header), atgriež tikai right column partial.
+     */
+    public function fundamentalShow(Request $request, Instrument $instrument): View
+    {
+        $data = $this->instrumentDetailData($instrument);
+        if ($request->header('X-Right-Only') === '1') {
+            return view('instruments.partials._right-fundamental', $data);
+        }
+        return view('instruments.screener-fundamental', $data);
+    }
+
+    /**
+     * Tehniskie dati — app-shell layout, bez izvēlēta instrumenta.
+     */
+    public function technicalIndex(): View
+    {
+        return view('instruments.screener-technical', [
+            'instrument' => null,
+        ] + $this->screenerData());
+    }
+
+    /**
+     * Tehniskie dati ar izvēlētu instrumentu — labajā kolonnā cenas grafiks + Engela trijstūris.
+     * Ja AJAX (X-Right-Only header), atgriež tikai right column partial.
+     */
+    public function technicalShow(Request $request, Instrument $instrument): View
+    {
+        $data = $this->instrumentDetailData($instrument);
+        if ($request->header('X-Right-Only') === '1') {
+            return view('instruments.partials._right-technical', $data);
+        }
+        return view('instruments.screener-technical', $data);
+    }
+
+    /**
+     * Kopējie dati middle column screenerim.
+     */
+    private function screenerData(): array
+    {
+        $sectors = DB::table('instruments')->whereNotNull('sector')->distinct()->orderBy('sector')->pluck('sector');
+
+        $industriesGrouped = DB::table('instruments')
+            ->select(['sector', 'industry'])
+            ->whereNotNull('sector')->whereNotNull('industry')
+            ->distinct()->orderBy('sector')->orderBy('industry')
+            ->get();
+
+        $industryBySector = $industriesGrouped->groupBy('sector')
+            ->map(fn ($g) => $g->pluck('industry')->unique()->values());
+
+        $total = (int) DB::table('instruments')->count();
+        return [
+            'instruments' => $this->initialList(),
+            'sectors' => $sectors,
+            'industryBySector' => $industryBySector,
+            'total' => $total,
+        ];
+    }
+
+    /**
+     * Pilnie instrumenta dati priekš detalizētās lapas (chart + fundamentāli + portfeļi).
+     * Apvieno gan screener listas, gan instrumenta detail datus.
+     */
+    private function instrumentDetailData(Instrument $instrument): array
+    {
+        $priceSeries = DB::table('prices_daily')
+            ->select(['time', 'open', 'high', 'low', 'close', 'volume'])
+            ->where('instrument_id', $instrument->id)
+            ->where(function ($q) {
+                $q->whereNotNull('close')->orWhereNotNull('open')->orWhereNotNull('high')
+                  ->orWhereNotNull('low')->orWhereNotNull('volume');
+            })
+            ->orderBy('time')->get()->values();
+
+        $fundamentalData = $this->getFundamentalData($instrument);
+        $availableFundamentalYears = collect(array_keys($fundamentalData))
+            ->filter(fn ($y) => preg_match('/^\d{4}$/', $y))->sortDesc()->values();
+
+        $userPortfolios = Auth::check()
+            ? \App\Models\Portfolio::where('user_id', Auth::id())->orderBy('name')->get(['id', 'name', 'free_capital'])
+            : collect();
+
+        $priceRange = DB::table('prices_daily')
+            ->where('instrument_id', $instrument->id)->whereNotNull('close')
+            ->selectRaw('MIN(time) as earliest, MAX(time) as latest')->first();
+        $earliestInstrumentDate = $priceRange?->earliest
+            ? \Illuminate\Support\Carbon::parse($priceRange->earliest)->toDateString() : null;
+        $latestInstrumentDate = $priceRange?->latest
+            ? \Illuminate\Support\Carbon::parse($priceRange->latest)->toDateString() : null;
+
+        return array_merge($this->screenerData(), [
+            'instrument' => $instrument,
+            'priceSeries' => $priceSeries,
+            'availableFundamentalYears' => $availableFundamentalYears,
+            'fundamentalData' => $fundamentalData,
+            'userPortfolios' => $userPortfolios,
+            'earliestInstrumentDate' => $earliestInstrumentDate,
+            'latestInstrumentDate' => $latestInstrumentDate,
+        ]);
+    }
+
     public function show(Instrument $instrument): View
     {
         $priceSeries = DB::table('prices_daily')
@@ -277,13 +391,16 @@ class InstrumentController extends Controller
             ? \App\Models\Portfolio::where('user_id', Auth::id())->orderBy('name')->get(['id', 'name', 'free_capital'])
             : collect();
 
-        $latestInstrumentDate = DB::table('prices_daily')
+        $priceRange = DB::table('prices_daily')
             ->where('instrument_id', $instrument->id)
             ->whereNotNull('close')
-            ->max('time');
-        $latestInstrumentDate = $latestInstrumentDate
-            ? \Illuminate\Support\Carbon::parse($latestInstrumentDate)->toDateString()
-            : null;
+            ->selectRaw('MIN(time) as earliest, MAX(time) as latest')
+            ->first();
+
+        $earliestInstrumentDate = $priceRange?->earliest
+            ? \Illuminate\Support\Carbon::parse($priceRange->earliest)->toDateString() : null;
+        $latestInstrumentDate = $priceRange?->latest
+            ? \Illuminate\Support\Carbon::parse($priceRange->latest)->toDateString() : null;
 
         return view('instruments.show', [
             'instrument' => $instrument,
@@ -291,6 +408,7 @@ class InstrumentController extends Controller
             'availableFundamentalYears' => $availableFundamentalYears,
             'fundamentalData' => $fundamentalData,
             'userPortfolios' => $userPortfolios,
+            'earliestInstrumentDate' => $earliestInstrumentDate,
             'latestInstrumentDate' => $latestInstrumentDate,
         ]);
     }

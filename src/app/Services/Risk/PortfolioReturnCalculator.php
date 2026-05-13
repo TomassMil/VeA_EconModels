@@ -8,15 +8,18 @@ use Illuminate\Support\Facades\DB;
 /**
  * Aprēķina portfeļa atdevi (peļņu) procentos.
  *
- * Formula:
- *   peļņa = (pašreizējā_vērtība + brīvais_kapitāls - neto_iemaksas) / neto_iemaksas
+ * Pasniedzēja formula (vienota gan akcijai, gan portfelim):
+ *   peļņa = (pēdējā_diena - pirmā_diena) / pirmā_diena
  *
- * Kur:
- *   pašreizējā_vērtība = Σ (shares × current_close) visiem holdingiem
- *   brīvais_kapitāls   = visu portfolio_transactions amount summa
- *   neto_iemaksas      = deposit/withdrawal tipa transakciju summa
+ * Portfeļa kontekstā:
+ *   pirmā_diena = sākotnējais kapitāls (= net_deposits, t.i. visu deposit/withdrawal summa)
+ *   pēdējā_diena = pašreizējā kopējā vērtība (= cash + market_value)
  *
- * NB! Šī formula vēl tiek precizēta. Pagaidām atbilst PortfolioController::buildSummary().
+ * Tas ekvivalents:
+ *   peļņa = (pašreizējā_vērtība + brīvais_kapitāls − neto_iemaksas) / neto_iemaksas
+ *
+ * Backtest portfeļiem ar vienreizēju iemaksu (visi mūsu sistēmas/wizard portfeļi)
+ * formula precīzi atbilst akcijas formulai.
  */
 class PortfolioReturnCalculator
 {
