@@ -127,15 +127,17 @@ Route::middleware('auth')->group(function () use ($valuationCategories, $feature
         ]);
     })->name('home');
 
-    // Fundamentālie dati — instrumentu saraksts ar fokusu uz fundamentālajiem rādītājiem
-    Route::get('/fundamentali', [InstrumentController::class, 'index'])->name('fundamentals.index');
+    // Fundamentālie dati — app-shell ar middle column (screener) + right column (fundamental data)
+    Route::get('/fundamentali', [InstrumentController::class, 'fundamentalIndex'])->name('fundamentals.index');
     Route::get('/fundamentali/search', [InstrumentController::class, 'search'])->name('instruments.search');
     Route::get('/fundamentali/filter', [InstrumentController::class, 'filter'])->name('instruments.filter');
+    Route::get('/fundamentali/{instrument}', [InstrumentController::class, 'fundamentalShow'])->name('fundamentals.show');
 
-    // Tehniskie dati — pagaidām tā pati instrumentu lista (vēlāk filtri/sortēšana ar tehnisko fokusu)
-    Route::get('/tehniskie', [InstrumentController::class, 'index'])->name('technical.index');
+    // Tehniskie dati — app-shell ar middle column (screener) + right column (chart + Engel)
+    Route::get('/tehniskie', [InstrumentController::class, 'technicalIndex'])->name('technical.index');
+    Route::get('/tehniskie/{instrument}', [InstrumentController::class, 'technicalShow'])->name('technical.show');
 
-    // Instrumenta detalizētā lapa (kopēja gan fundamentālajai, gan tehniskajai sadaļai)
+    // Instrumenta detalizētā lapa (vecā kombinētā lapa — backward compat)
     Route::get('/instrument/{instrument}', [InstrumentController::class, 'show'])->name('instruments.show');
 
     // Indeksi — lapa atstāta kodā, bet šobrīd nepieejama lietotājiem

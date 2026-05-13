@@ -111,8 +111,9 @@
                 <input
                     type="date"
                     id="add-instrument-date"
+                    @if (!empty($earliestDataDate)) min="{{ $earliestDataDate }}" @endif
                     @if (!empty($latestDataDate)) max="{{ $latestDataDate }}" @endif
-                    title="Pirkuma datums. Maksimālais = pēdējais datums ar cenu datiem."
+                    title="Pirkuma datums. Atļauts tikai datu diapazons (no kreisās/labās malas)."
                     class="w-44 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
                 >
                 <button
@@ -130,8 +131,8 @@
                 </p>
                 <p class="text-[11px] text-amber-700">
                     📅 Pirkuma datums:
-                    @if (!empty($latestDataDate))
-                        atļauts līdz <strong>{{ $latestDataDate }}</strong> (datu beigas). Atstāj tukšu = jaunākā pieejamā cena.
+                    @if (!empty($earliestDataDate) && !empty($latestDataDate))
+                        atļauts <strong>{{ $earliestDataDate }}</strong> – <strong>{{ $latestDataDate }}</strong>. Atstāj tukšu = jaunākā cena.
                     @else
                         atstāj tukšu = jaunākā pieejamā cena.
                     @endif

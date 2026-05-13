@@ -39,10 +39,10 @@
                         </p>
                     </div>
                     <div class="inline-flex rounded border border-gray-300 overflow-hidden bg-white text-xs">
-                        @foreach ([30, 60, 90, 180, 365] as $d)
-                            <a href="?risk_days={{ $d }}"
-                               class="px-3 py-1.5 font-medium {{ $riskDays === $d ? 'bg-slate-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50' }} {{ ! $loop->last ? 'border-r border-gray-300' : '' }}">
-                                {{ $d }}d
+                        @foreach ([1, 2, 3, 5, 10] as $y)
+                            <a href="?risk_years={{ $y }}"
+                               class="px-3 py-1.5 font-medium {{ ($riskYears ?? 1) === $y ? 'bg-slate-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50' }} {{ ! $loop->last ? 'border-r border-gray-300' : '' }}">
+                                {{ $y }}g
                             </a>
                         @endforeach
                     </div>

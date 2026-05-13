@@ -63,15 +63,34 @@
                 </div>
             </div>
 
+            {{-- Walk-forward explanation --}}
+            <div class="bg-gradient-to-r from-purple-50 to-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-gray-700">
+                <p class="font-semibold text-gray-800 mb-1.5 flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                    </svg>
+                    Walk-forward backtest princips
+                </p>
+                <p class="leading-relaxed">
+                    Stratēģija izvēlas akcijas <strong>pirms</strong> bāzes datuma (optimizācijas periods, izmantojot fundamentālos datus no FY pirms bāzes gada), un tad <strong>tur tās pēc bāzes datuma</strong> līdz šim brīdim (testēšanas periods). Bāzes datums = robeža starp diviem periodiem.
+                </p>
+            </div>
+
             {{-- Base date + capital --}}
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Bāzes datums</label>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <span class="inline-block w-2 h-2 bg-purple-500 rounded-full mr-1.5 align-middle"></span>
+                        Bāzes datums (testēšanas sākums)
+                    </label>
                     <input type="date" name="base_date" id="base-date" required
                            min="2018-04-01" max="{{ now()->toDateString() }}"
                            value="{{ old('base_date', '2021-04-01') }}"
                            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
-                    <p class="text-[11px] text-gray-500 mt-1">Datums, kad simulētie pirkumi tiek veikti. <strong>Tikai 2018-04-01 vai vēlāk</strong> (SimFin sākas no 2018).</p>
+                    <p class="text-[11px] text-gray-500 mt-1">
+                        Optimizācijas dati no FY pirms šī datuma. Testēšana no šī datuma līdz šim brīdim.
+                        <strong>Min 2018-04-01</strong> (SimFin sākas 2018).
+                    </p>
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Sākuma kapitāls ($)</label>
