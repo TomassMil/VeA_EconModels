@@ -33,6 +33,32 @@ class BacktestRunner
             throw new \RuntimeException("Stratēģija '{$strategy->key()}' neatgrieza nevienu instrumentu.");
         }
 
+        // Override weights if custom_weights provided (wizard preview manual edit)
+        if (! empty($config['custom_weights'])) {
+            $weightMap = collect($config['custom_weights'])
+                ->keyBy('instrument_id')
+                ->map(fn ($w) => (float) ($w['weight'] ?? 0));
+
+            $selections = $selections->filter(fn ($s) => isset($weightMap[$s['instrument_id']]) && $weightMap[$s['instrument_id']] > 0)
+                ->map(function ($s) use ($weightMap) {
+                    $s['weight'] = $weightMap[$s['instrument_id']];
+                    return $s;
+                })->values();
+
+            if ($selections->isEmpty()) {
+                throw new \RuntimeException('Custom weights neatstāja nevienu instrumentu.');
+            }
+
+            // Normalize weights to sum to 1.0 (in case user input doesn't quite)
+            $weightSum = $selections->sum('weight');
+            if ($weightSum > 0) {
+                $selections = $selections->map(function ($s) use ($weightSum) {
+                    $s['weight'] = $s['weight'] / $weightSum;
+                    return $s;
+                });
+            }
+        }
+
         // Cenas bāzes datumā: tuvākā agrākā tirgus diena katram instrumentam
         $instrumentIds = $selections->pluck('instrument_id')->all();
         $prices = $this->fetchPricesAt($instrumentIds, $baseDate);
@@ -75,7 +101,9 @@ class BacktestRunner
                 $weight = $sel['weight'];
                 $price = $prices[$instrumentId];
                 $allocation = $capital * $weight;
-                $shares = round($allocation / $price, 3);
+                // Floor (round down) shares — garantē, ka totālais izlietojums NEPĀRSNIEDZ kapitālu.
+                // Citādi noapaļošana var dot free_capital negatīvu (piem. -$0.11) pēc 20 picks.
+                $shares = floor(($allocation / $price) * 1000) / 1000;
 
                 if ($shares <= 0) {
                     continue;

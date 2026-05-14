@@ -40,7 +40,7 @@
                     </div>
                     <div class="inline-flex rounded border border-gray-300 overflow-hidden bg-white text-xs">
                         @foreach ([1, 2, 3, 5, 10] as $y)
-                            <a href="?risk_years={{ $y }}"
+                            <a href="?risk_years={{ $y }}&filter={{ $scatterFilter ?? 'personal' }}"
                                class="px-3 py-1.5 font-medium {{ ($riskYears ?? 1) === $y ? 'bg-slate-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50' }} {{ ! $loop->last ? 'border-r border-gray-300' : '' }}">
                                 {{ $y }}g
                             </a>
@@ -49,15 +49,20 @@
                 </div>
 
                 {{-- Filter pogas --}}
+                @php
+                    $sf = $scatterFilter ?? 'personal';
+                    $btnActive = 'bg-slate-700 text-white';
+                    $btnInactive = 'bg-white text-gray-700 hover:bg-gray-50';
+                @endphp
                 <div class="flex flex-wrap gap-2 mb-3">
-                    <button type="button" data-filter="all" class="scatter-filter px-3 py-1.5 text-xs font-medium rounded-full border border-gray-300 bg-slate-700 text-white">Visi</button>
-                    <button type="button" data-filter="personal" class="scatter-filter px-3 py-1.5 text-xs font-medium rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+                    <button type="button" data-filter="all" class="scatter-filter px-3 py-1.5 text-xs font-medium rounded-full border border-gray-300 {{ $sf === 'all' ? $btnActive : $btnInactive }}">Visi</button>
+                    <button type="button" data-filter="personal" class="scatter-filter px-3 py-1.5 text-xs font-medium rounded-full border border-gray-300 {{ $sf === 'personal' ? $btnActive : $btnInactive }}">
                         <span class="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span>Mani portfeļi
                     </button>
-                    <button type="button" data-filter="system" class="scatter-filter px-3 py-1.5 text-xs font-medium rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+                    <button type="button" data-filter="system" class="scatter-filter px-3 py-1.5 text-xs font-medium rounded-full border border-gray-300 {{ $sf === 'system' ? $btnActive : $btnInactive }}">
                         <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>Modeļi
                     </button>
-                    <button type="button" data-filter="index" class="scatter-filter px-3 py-1.5 text-xs font-medium rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+                    <button type="button" data-filter="index" class="scatter-filter px-3 py-1.5 text-xs font-medium rounded-full border border-gray-300 {{ $sf === 'index' ? $btnActive : $btnInactive }}">
                         <span class="inline-block w-2 h-2 rounded-full bg-red-500 mr-1.5"></span>Indeksi
                     </button>
                 </div>
@@ -99,44 +104,21 @@
         </aside>
         {{-- /end QuantStats drawer --}}
 
-        {{-- Create new portfolio --}}
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-6">
-            <h2 class="text-sm font-semibold text-gray-700 mb-3">Izveidot jaunu portfeli</h2>
-            <form action="{{ route('portfolios.store') }}" method="POST" class="flex flex-col sm:flex-row gap-3">
-                @csrf
-                <input
-                    type="text"
-                    name="name"
-                    placeholder="Portfeļa nosaukums"
-                    required
-                    maxlength="100"
-                    class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-                >
-                <div class="flex gap-2">
-                    <div class="relative">
-                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                        <input
-                            type="number"
-                            name="free_capital"
-                            placeholder="Sākuma kapitāls"
-                            required
-                            min="0"
-                            step="0.01"
-                            value="10000"
-                            class="w-40 rounded-lg border border-gray-300 pl-7 pr-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-                        >
-                    </div>
-                    <button
-                        type="submit"
-                        class="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors whitespace-nowrap"
-                    >
-                        Izveidot
-                    </button>
-                </div>
-            </form>
-            @if ($errors->any())
-                <p class="text-xs text-red-600 mt-2">{{ $errors->first() }}</p>
-            @endif
+        {{-- Create new portfolio — links to dedicated full form page --}}
+        <div class="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 rounded-xl p-5 mb-6 flex items-center justify-between gap-4">
+            <div>
+                <h2 class="text-sm font-semibold text-gray-900">Izveidot jaunu portfeli</h2>
+                <p class="text-xs text-gray-600 mt-1">
+                    Manuāla instrumentu izvēle ar per-instrument svariem, summām un pirkuma datumiem.
+                </p>
+            </div>
+            <a href="{{ route('portfolios.create') }}"
+               class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Sākt veidot
+            </a>
         </div>
 
         @if ($portfolios->isEmpty())
@@ -328,23 +310,45 @@
     });
 
     // ─── Filter buttons ───
+    function applyFilter(filter) {
+        // Update visual state of buttons
+        document.querySelectorAll('.scatter-filter').forEach(b => {
+            b.classList.remove('bg-slate-700', 'text-white');
+            b.classList.add('bg-white', 'text-gray-700');
+        });
+        const activeBtn = document.querySelector(`.scatter-filter[data-filter="${filter}"]`);
+        if (activeBtn) {
+            activeBtn.classList.add('bg-slate-700', 'text-white');
+            activeBtn.classList.remove('bg-white', 'text-gray-700');
+        }
+        // Show/hide datasets
+        chart.data.datasets.forEach((ds, idx) => {
+            const meta = chart.getDatasetMeta(idx);
+            meta.hidden = filter !== 'all' && ds._category !== filter;
+        });
+        chart.update();
+    }
+
+    // Initial filter from server (URL query); default = personal
+    const initialFilter = @json($scatterFilter ?? 'personal');
+    applyFilter(initialFilter);
+
     document.querySelectorAll('.scatter-filter').forEach(btn => {
         btn.addEventListener('click', () => {
             const filter = btn.dataset.filter;
-            // Update visual state of buttons
-            document.querySelectorAll('.scatter-filter').forEach(b => {
-                b.classList.remove('bg-slate-700', 'text-white');
-                b.classList.add('bg-white', 'text-gray-700');
-            });
-            btn.classList.add('bg-slate-700', 'text-white');
-            btn.classList.remove('bg-white', 'text-gray-700');
+            applyFilter(filter);
 
-            // Show/hide datasets
-            chart.data.datasets.forEach((ds, idx) => {
-                const meta = chart.getDatasetMeta(idx);
-                meta.hidden = filter !== 'all' && ds._category !== filter;
+            // Persist filter in URL — preserves through year-button clicks (full reload)
+            const url = new URL(window.location.href);
+            url.searchParams.set('filter', filter);
+            history.replaceState(history.state, '', url.toString());
+
+            // Update year-button hrefs so reloading them preserves filter too
+            document.querySelectorAll('a[href^="?risk_years"]').forEach(yearLink => {
+                const yearUrl = new URL(yearLink.href, window.location.origin);
+                yearUrl.searchParams.set('filter', filter);
+                yearLink.href = yearUrl.toString();
             });
-            chart.update();
         });
     });
 

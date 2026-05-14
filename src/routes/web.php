@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\BacktestController;
+use App\Http\Controllers\FormulaController;
 use App\Http\Controllers\IndexController;
 use App\Http\Controllers\InstrumentController;
 use App\Http\Controllers\PortfolioController;
@@ -151,6 +152,8 @@ Route::middleware('auth')->group(function () use ($valuationCategories, $feature
 
     Route::get('/portfelis', [PortfolioController::class, 'index'])->name('portfolios.index');
     Route::post('/portfelis', [PortfolioController::class, 'store'])->name('portfolios.store');
+    Route::get('/portfelis/izveidot', [PortfolioController::class, 'createForm'])->name('portfolios.create');
+    Route::post('/portfelis/izveidot', [PortfolioController::class, 'storeManual'])->name('portfolios.storeManual');
     Route::get('/portfelis/{portfolio}', [PortfolioController::class, 'show'])->name('portfolios.show');
     Route::delete('/portfelis/{portfolio}', [PortfolioController::class, 'destroy'])->name('portfolios.destroy');
     Route::post('/portfelis/{portfolio}/add-instrument', [PortfolioController::class, 'addInstrument'])->name('portfolios.addInstrument');
@@ -162,6 +165,12 @@ Route::middleware('auth')->group(function () use ($valuationCategories, $feature
     Route::get('/backtests/create', [BacktestController::class, 'create'])->name('backtests.create');
     Route::post('/backtests/preview', [BacktestController::class, 'preview'])->name('backtests.preview');
     Route::post('/backtests', [BacktestController::class, 'store'])->name('backtests.store');
+
+    // Saglabātās formulas custom_formula stratēģijai
+    Route::get('/formulas', [FormulaController::class, 'index'])->name('formulas.index');
+    Route::post('/formulas', [FormulaController::class, 'store'])->name('formulas.store');
+    Route::post('/formulas/validate', [FormulaController::class, 'validateFormula'])->name('formulas.validate');
+    Route::delete('/formulas/{formula}', [FormulaController::class, 'destroy'])->name('formulas.destroy');
     Route::delete('/portfelis/{portfolio}/remove-instrument/{instrumentId}', [PortfolioController::class, 'removeInstrument'])->name('portfolios.removeInstrument');
 
     // Investīciju teorijas — vērtēšanas modeļu klasifikācija

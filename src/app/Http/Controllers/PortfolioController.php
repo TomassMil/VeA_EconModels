@@ -33,6 +33,12 @@ class PortfolioController extends Controller
             $riskYears = RiskCalculator::DEFAULT_YEARS;
         }
 
+        // Filter (personal/system/index/all) — persistents pār year-button kliķiem
+        $scatterFilter = (string) $request->query('filter', 'personal');
+        if (! in_array($scatterFilter, ['all', 'personal', 'system', 'index'], true)) {
+            $scatterFilter = 'personal';
+        }
+
         // Personīgais saraksts — tikai lietotāja portfeļi (bez sistēmas)
         $personalPortfolios = Portfolio::forUser(Auth::id())
             ->withCount('instruments')
@@ -52,7 +58,8 @@ class PortfolioController extends Controller
                 'description' => $p->description,
                 'category' => $category,    // 'personal' | 'system' | 'index'
                 'risk' => $this->riskCalculator->portfolioRisk($p, $riskYears),
-                'return' => $this->returnCalculator->totalReturn($p),
+                // Peļņa par to pašu logu kā risks (windowed return matching risk_years)
+                'return' => $this->returnCalculator->periodReturn($p, $riskYears),
             ];
         };
 
@@ -73,8 +80,140 @@ class PortfolioController extends Controller
             'systemPortfolios' => $systemPortfolios,
             'scatterPoints' => $scatterPoints,
             'riskYears' => $riskYears,
+            'scatterFilter' => $scatterFilter,
             'latestDataDate' => $latestDataDate ? \Carbon\Carbon::parse($latestDataDate)->toDateString() : null,
         ]);
+    }
+
+    /**
+     * Manuālā portfeļa veidošanas forma — per-instrument svari, summas, datumi.
+     */
+    public function createForm(): View
+    {
+        $dataRange = DB::table('prices_daily')
+            ->selectRaw('MIN(time) as earliest, MAX(time) as latest')->first();
+        $earliestDataDate = $dataRange?->earliest ? \Carbon\Carbon::parse($dataRange->earliest)->toDateString() : null;
+        $latestDataDate = $dataRange?->latest ? \Carbon\Carbon::parse($dataRange->latest)->toDateString() : null;
+
+        return view('portfolios.create', [
+            'earliestDataDate' => $earliestDataDate,
+            'latestDataDate' => $latestDataDate,
+        ]);
+    }
+
+    /**
+     * Manuālā portfeļa saglabāšana — saņem picks masīvu un izveido portfeli + transakcijas.
+     */
+    public function storeManual(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:100',
+            'description' => 'nullable|string|max:500',
+            'capital' => 'required|numeric|min:1',
+            'picks' => 'required|array|min:1',
+            'picks.*.ticker' => 'required|string|max:32',
+            'picks.*.amount' => 'required|numeric|min:0.01',
+            'picks.*.transaction_date' => 'required|date|before_or_equal:today',
+        ]);
+
+        // Resolve tickers + prices for each pick
+        $resolved = [];
+        foreach ($data['picks'] as $idx => $pick) {
+            $ticker = strtoupper(trim($pick['ticker']));
+            $instrument = \App\Models\Instrument::where('ticker', $ticker)->first();
+            if (! $instrument) {
+                return back()->withErrors(['picks' => "Nezināms ticker: {$ticker}"])->withInput();
+            }
+
+            $priceRow = DB::table('prices_daily')
+                ->where('instrument_id', $instrument->id)
+                ->whereNotNull('close')
+                ->where('time', '<=', $pick['transaction_date'])
+                ->orderByDesc('time')
+                ->first(['time', 'close']);
+
+            if (! $priceRow) {
+                return back()->withErrors(['picks' => "Nav cenas datu {$ticker} pirms {$pick['transaction_date']}"])->withInput();
+            }
+
+            $priceDate = \Carbon\Carbon::parse($priceRow->time)->toDateString();
+            $gapDays = \Carbon\Carbon::parse($pick['transaction_date'])->diffInDays($priceDate, true);
+            if ($gapDays > 7) {
+                return back()->withErrors(['picks' =>
+                    "Pārāk veca cena {$ticker}: jaunākā {$priceDate} ({$gapDays}d pirms {$pick['transaction_date']})"
+                ])->withInput();
+            }
+
+            $price = (float) $priceRow->close;
+            $shares = floor(((float) $pick['amount'] / $price) * 1000) / 1000;
+            if ($shares <= 0) {
+                return back()->withErrors(['picks' => "Summa {$ticker} par mazu, lai nopirktu vienu akciju"])->withInput();
+            }
+            $cost = round($shares * $price, 2);
+
+            $resolved[] = [
+                'instrument_id' => $instrument->id,
+                'ticker' => $ticker,
+                'price' => $price,
+                'shares' => $shares,
+                'cost' => $cost,
+                'date' => $pick['transaction_date'],
+            ];
+        }
+
+        $totalCost = array_sum(array_column($resolved, 'cost'));
+        $capital = (float) $data['capital'];
+        if ($totalCost > $capital + 0.01) {
+            return back()->withErrors(['picks' =>
+                'Kopējās izmaksas ($' . number_format($totalCost, 2) . ') pārsniedz kapitālu ($' . number_format($capital, 2) . ')'
+            ])->withInput();
+        }
+
+        $earliestDate = min(array_column($resolved, 'date'));
+
+        $portfolio = DB::transaction(function () use ($data, $resolved, $totalCost, $capital, $earliestDate) {
+            $portfolio = Portfolio::create([
+                'user_id' => Auth::id(),
+                'name' => $data['name'],
+                'description' => $data['description'] ?? null,
+                'currency' => 'USD',
+                'free_capital' => round($capital - $totalCost, 2),
+            ]);
+
+            // Initial deposit on earliest transaction date
+            PortfolioTransaction::create([
+                'portfolio_id' => $portfolio->id,
+                'instrument_id' => null,
+                'type' => 'deposit',
+                'transaction_date' => $earliestDate,
+                'amount' => $capital,
+                'currency' => 'USD',
+                'note' => 'Initial deposit',
+            ]);
+
+            foreach ($resolved as $p) {
+                $portfolio->instruments()->attach($p['instrument_id'], [
+                    'amount_invested' => $p['cost'],
+                    'shares' => $p['shares'],
+                ]);
+
+                PortfolioTransaction::create([
+                    'portfolio_id' => $portfolio->id,
+                    'instrument_id' => $p['instrument_id'],
+                    'type' => 'buy',
+                    'transaction_date' => $p['date'],
+                    'shares' => $p['shares'],
+                    'price_per_share' => $p['price'],
+                    'amount' => -$p['cost'],
+                    'currency' => 'USD',
+                ]);
+            }
+
+            return $portfolio;
+        });
+
+        return redirect()->route('portfolios.show', $portfolio)
+            ->with('success', "Portfelis '{$portfolio->name}' izveidots ar " . count($resolved) . " instrumentiem.");
     }
 
     public function store(Request $request): RedirectResponse

@@ -3,6 +3,7 @@
 namespace App\Services\Backtest;
 
 use App\Services\Backtest\Strategies\AltmanZTopN;
+use App\Services\Backtest\Strategies\CustomFormulaStrategy;
 use App\Services\Backtest\Strategies\EqualWeightBuyHold;
 use App\Services\Backtest\Strategies\GrahamTopN;
 
@@ -23,6 +24,7 @@ class StrategyRegistry
         EqualWeightBuyHold::class,
         GrahamTopN::class,
         AltmanZTopN::class,
+        CustomFormulaStrategy::class,
     ];
 
     /**

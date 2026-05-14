@@ -37,53 +37,55 @@
             </div>
 
             @if ($priceSeries->isNotEmpty())
-                <div class="flex gap-4 items-end mb-2">
-                    <div class="flex items-center justify-end gap-2" style="flex:3 1 0%">
-                        <div id="chart-range-group" class="inline-flex rounded border border-gray-300 overflow-hidden bg-white">
-                            <button type="button" class="chart-range-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-range="1m">1m</button>
-                            <button type="button" class="chart-range-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-range="1y">1y</button>
-                            <button type="button" class="chart-range-btn px-2 py-1 text-[11px] font-medium bg-slate-700 text-white border-r border-gray-300" data-range="5y">5y</button>
-                            <button type="button" class="chart-range-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-range="10y">10y</button>
-                            <button type="button" class="chart-range-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700" data-range="max">max</button>
-                        </div>
-                        <div id="chart-interval-group" class="inline-flex rounded border border-gray-300 overflow-hidden bg-white">
-                            <button type="button" class="px-2 py-1 text-[11px] font-medium bg-slate-700 text-white border-r border-gray-300" data-interval="1d">1d</button>
-                            <button type="button" class="px-2 py-1 text-[11px] font-medium bg-gray-100 text-gray-400 cursor-not-allowed" data-interval="1w" disabled title="1w coming soon">1w</button>
-                        </div>
+                {{-- Chart toolbar — range + interval --}}
+                <div class="flex flex-wrap items-center justify-end gap-2 mb-2">
+                    <div id="chart-range-group" class="inline-flex rounded border border-gray-300 overflow-hidden bg-white">
+                        <button type="button" class="chart-range-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-range="1m">1m</button>
+                        <button type="button" class="chart-range-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-range="1y">1y</button>
+                        <button type="button" class="chart-range-btn px-2 py-1 text-[11px] font-medium bg-slate-700 text-white border-r border-gray-300" data-range="5y">5y</button>
+                        <button type="button" class="chart-range-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-range="10y">10y</button>
+                        <button type="button" class="chart-range-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700" data-range="max">max</button>
                     </div>
-                    <div class="flex items-center justify-center" style="flex:1 1 0%">
-                        <div id="engel-days-group" class="inline-flex rounded border border-gray-300 overflow-hidden bg-white">
-                            <button type="button" class="engel-days-btn px-2 py-1 text-[11px] font-medium bg-slate-700 text-white border-r border-gray-300" data-days="30">30d</button>
-                            <button type="button" class="engel-days-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-days="60">60d</button>
-                            <button type="button" class="engel-days-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-days="90">90d</button>
-                            <button type="button" class="engel-days-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-days="180">180d</button>
-                            <button type="button" class="engel-days-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-days="365">1y</button>
-                            <button type="button" class="engel-days-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700" data-days="730">2y</button>
-                        </div>
+                    <div id="chart-interval-group" class="inline-flex rounded border border-gray-300 overflow-hidden bg-white">
+                        <button type="button" class="px-2 py-1 text-[11px] font-medium bg-slate-700 text-white border-r border-gray-300" data-interval="1d">1d</button>
+                        <button type="button" class="px-2 py-1 text-[11px] font-medium bg-gray-100 text-gray-400 cursor-not-allowed" data-interval="1w" disabled title="1w coming soon">1w</button>
                     </div>
                 </div>
 
-                <div class="flex gap-4 items-start">
-                    <div id="chart-container" class="min-w-0 relative overflow-hidden rounded-lg cursor-none select-none" style="flex:3 1 0%">
-                        <div
-                            id="chart-hover-info"
-                            class="absolute left-3 top-2 z-10 text-xs text-gray-500 pointer-events-none font-medium tracking-wide"
-                        ></div>
-                        <svg id="price-chart" class="h-[520px]"></svg>
-                    </div>
+                {{-- Chart (full width) --}}
+                <div id="chart-container" class="min-w-0 w-full relative overflow-hidden rounded-lg cursor-none select-none mb-4">
+                    <div
+                        id="chart-hover-info"
+                        class="absolute left-3 top-2 z-10 text-xs text-gray-500 pointer-events-none font-medium tracking-wide"
+                    ></div>
+                    <svg id="price-chart" class="h-[420px] w-full"></svg>
+                </div>
 
-                    <div id="engel-triangle-container" class="min-w-0 flex flex-col" style="flex:1 1 0%">
-                        <div class="relative rounded-lg border border-gray-100 bg-white overflow-hidden flex items-center justify-center" style="aspect-ratio:1/1">
-                            <canvas id="engel-canvas" class="block"></canvas>
-                            <div id="engel-spinner" class="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-10 hidden">
-                                <svg class="animate-spin h-8 w-8 text-slate-400 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                                </svg>
-                                <span class="text-xs text-slate-400 font-medium">Computing...</span>
-                            </div>
-                            <div id="engel-tooltip" class="absolute z-20 hidden rounded bg-gray-900 px-2 py-1 text-[10px] text-white shadow-lg pointer-events-none whitespace-nowrap leading-relaxed"></div>
+                {{-- Engela trijstūris toolbar --}}
+                <div class="flex flex-wrap items-center justify-between gap-3 mt-4 mb-2">
+                    <h3 class="text-sm font-semibold text-gray-700">Engela trijstūris</h3>
+                    <div id="engel-days-group" class="inline-flex rounded border border-gray-300 overflow-hidden bg-white">
+                        <button type="button" class="engel-days-btn px-2 py-1 text-[11px] font-medium bg-slate-700 text-white border-r border-gray-300" data-days="30">30d</button>
+                        <button type="button" class="engel-days-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-days="60">60d</button>
+                        <button type="button" class="engel-days-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-days="90">90d</button>
+                        <button type="button" class="engel-days-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-days="180">180d</button>
+                        <button type="button" class="engel-days-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700 border-r border-gray-300" data-days="365">1y</button>
+                        <button type="button" class="engel-days-btn px-2 py-1 text-[11px] font-medium bg-white text-gray-700" data-days="730">2y</button>
+                    </div>
+                </div>
+
+                {{-- Engel canvas — max 480px square, centered --}}
+                <div id="engel-triangle-container" class="min-w-0 flex flex-col items-center">
+                    <div class="relative rounded-lg border border-gray-100 bg-white overflow-hidden flex items-center justify-center w-full max-w-[480px]" style="aspect-ratio:1/1">
+                        <canvas id="engel-canvas" class="block"></canvas>
+                        <div id="engel-spinner" class="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-10 hidden">
+                            <svg class="animate-spin h-8 w-8 text-slate-400 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            <span class="text-xs text-slate-400 font-medium">Computing...</span>
                         </div>
+                        <div id="engel-tooltip" class="absolute z-20 hidden rounded bg-gray-900 px-2 py-1 text-[10px] text-white shadow-lg pointer-events-none whitespace-nowrap leading-relaxed"></div>
                     </div>
                 </div>
             @else

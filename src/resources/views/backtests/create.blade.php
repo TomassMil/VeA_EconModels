@@ -38,7 +38,8 @@
                         <option value="{{ $s->key() }}"
                                 data-description="{{ $s->description() }}"
                                 data-needs-tickers="{{ $s->key() === 'equal_weight_buy_hold' ? '1' : '0' }}"
-                                data-needs-topn="{{ str_ends_with($s->key(), '_top_n') ? '1' : '0' }}"
+                                data-needs-topn="{{ str_ends_with($s->key(), '_top_n') || $s->key() === 'custom_formula' ? '1' : '0' }}"
+                                data-needs-formula="{{ $s->key() === 'custom_formula' ? '1' : '0' }}"
                                 {{ old('strategy') === $s->key() ? 'selected' : '' }}>
                             {{ $s->name() }}
                         </option>
@@ -121,6 +122,89 @@
                 <p class="text-[11px] text-gray-500 mt-1">Meklē un klikšķini, lai pievienotu. Kapitāls tiks sadalīts vienādās daļās.</p>
             </div>
 
+            {{-- Custom formula param --}}
+            <div id="param-formula" class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hidden space-y-3">
+                {{-- Saglabāto formulu dropdown --}}
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Saglabātās formulas</label>
+                    <div class="flex gap-2">
+                        <select id="saved-formula-select" class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
+                            <option value="">— jauna formula —</option>
+                            @foreach ($savedFormulas as $f)
+                                <option value="{{ $f->id }}"
+                                        data-formula="{{ $f->formula }}"
+                                        data-top-n="{{ $f->top_n }}"
+                                        data-description="{{ $f->description }}">
+                                    {{ $f->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <button type="button" id="delete-formula-btn" class="hidden rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 transition-colors" title="Dzēst izvēlēto formulu">
+                            🗑
+                        </button>
+                    </div>
+                </div>
+
+                {{-- Cheatsheet --}}
+                <details class="bg-gradient-to-r from-purple-50 to-blue-50 border border-blue-200 rounded-lg">
+                    <summary class="cursor-pointer px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-blue-50">
+                        📖 Pieejamie mainīgie ({{ count($formulaVariables) }}) un funkcijas ({{ count($formulaFunctions) }})
+                    </summary>
+                    <div class="p-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div>
+                            <p class="font-semibold text-gray-700 mb-1.5">Mainīgie</p>
+                            <ul class="space-y-0.5">
+                                @foreach ($formulaVariables as $v => $desc)
+                                    <li>
+                                        <code class="text-blue-700 font-mono">{{ $v }}</code>
+                                        <span class="text-gray-600"> — {{ $desc }}</span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-700 mb-1.5">Funkcijas + operatori</p>
+                            <ul class="space-y-0.5">
+                                @foreach ($formulaFunctions as $fn => $desc)
+                                    <li>
+                                        <code class="text-blue-700 font-mono">{{ $fn }}</code>
+                                        <span class="text-gray-600"> — {{ $desc }}</span>
+                                    </li>
+                                @endforeach
+                                <li class="pt-1 text-gray-500">
+                                    Operatori: <code class="text-blue-700">+ − * / %</code> un iekavas <code class="text-blue-700">( )</code>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </details>
+
+                {{-- Formula textarea --}}
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Formula</label>
+                    <textarea name="formula" id="formula-input" rows="3"
+                              placeholder="Piem.: roe + gross_margin * 0.5 - debt_to_equity"
+                              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">{{ old('formula') }}</textarea>
+                    <div class="flex items-center justify-between mt-1.5">
+                        <p id="formula-validation" class="text-[11px] text-gray-500">Formula tiks validēta, kad spied "Atlasīt akcijas"</p>
+                        <button type="button" id="validate-formula-btn" class="text-[11px] text-blue-600 hover:text-blue-700 font-medium">✓ Validēt</button>
+                    </div>
+                </div>
+
+                {{-- Save formula --}}
+                <div class="flex gap-2 items-end pt-2 border-t border-gray-100">
+                    <div class="flex-1">
+                        <label class="block text-[11px] font-medium text-gray-600 mb-1">Saglabāt kā:</label>
+                        <input type="text" id="formula-save-name" placeholder="Nosaukums..." maxlength="100"
+                               class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
+                    </div>
+                    <button type="button" id="save-formula-btn" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 transition-colors">
+                        💾 Saglabāt
+                    </button>
+                </div>
+                <p id="formula-save-msg" class="text-[11px] hidden"></p>
+            </div>
+
             {{-- Preview button + result area --}}
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
                 <button type="button" id="preview-btn"
@@ -133,7 +217,12 @@
                 </button>
 
                 <div id="preview-result" class="mt-4 hidden">
-                    <h3 class="text-sm font-semibold text-gray-800 mb-2">Atlasīto akciju saraksts</h3>
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-semibold text-gray-800">Atlasīto akciju saraksts</h3>
+                        <button type="button" id="preview-equal-weight-btn" class="text-xs text-blue-600 hover:text-blue-700 font-medium">
+                            ⚖ Sadalīt vienlīdzīgi
+                        </button>
+                    </div>
                     <div class="overflow-x-auto rounded-lg border border-gray-200">
                         <table class="min-w-full text-sm">
                             <thead class="bg-gray-50">
@@ -142,12 +231,21 @@
                                     <th class="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase">Ticker</th>
                                     <th class="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase">Uzņēmums</th>
                                     <th class="px-3 py-2 text-right text-[11px] font-semibold text-gray-600 uppercase">Score</th>
-                                    <th class="px-3 py-2 text-right text-[11px] font-semibold text-gray-600 uppercase">Svars</th>
+                                    <th class="px-3 py-2 text-right text-[11px] font-semibold text-gray-600 uppercase w-24">Svars %</th>
+                                    <th class="px-3 py-2 text-right text-[11px] font-semibold text-gray-600 uppercase w-28">Summa $</th>
                                 </tr>
                             </thead>
                             <tbody id="preview-tbody" class="divide-y divide-gray-100"></tbody>
+                            <tfoot class="bg-gray-50">
+                                <tr>
+                                    <td colspan="4" class="px-3 py-2 text-xs text-right font-semibold text-gray-700">Kopā:</td>
+                                    <td class="px-3 py-2 text-right text-xs font-bold tabular-nums"><span id="preview-total-weight">100.0</span>%</td>
+                                    <td class="px-3 py-2 text-right text-xs font-bold tabular-nums">$<span id="preview-total-amount">0.00</span></td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
+                    <input type="hidden" name="custom_weights" id="custom-weights-input" value="">
                 </div>
 
                 <div id="preview-loader" class="mt-4 hidden">
@@ -188,6 +286,8 @@
     const descEl = document.getElementById('strategy-description');
     const paramTopN = document.getElementById('param-top-n');
     const paramTickers = document.getElementById('param-tickers');
+    const paramFormula = document.getElementById('param-formula');
+    const formulaInput = document.getElementById('formula-input');
     const previewBtn = document.getElementById('preview-btn');
     const previewResult = document.getElementById('preview-result');
     const previewTbody = document.getElementById('preview-tbody');
@@ -204,10 +304,139 @@
         descEl.textContent = opt.dataset.description || '';
         paramTopN.classList.toggle('hidden', opt.dataset.needsTopn !== '1');
         paramTickers.classList.toggle('hidden', opt.dataset.needsTickers !== '1');
+        paramFormula.classList.toggle('hidden', opt.dataset.needsFormula !== '1');
         invalidatePreview();
     }
     select.addEventListener('change', updateStrategy);
     updateStrategy();
+
+    /* ─── Custom formula UI ─── */
+    const savedFormulaSelect = document.getElementById('saved-formula-select');
+    const deleteFormulaBtn = document.getElementById('delete-formula-btn');
+    const formulaValidation = document.getElementById('formula-validation');
+    const validateFormulaBtn = document.getElementById('validate-formula-btn');
+    const saveFormulaBtn = document.getElementById('save-formula-btn');
+    const formulaSaveName = document.getElementById('formula-save-name');
+    const formulaSaveMsg = document.getElementById('formula-save-msg');
+
+    // Load saved formula into textarea + top_n
+    savedFormulaSelect.addEventListener('change', () => {
+        const opt = savedFormulaSelect.options[savedFormulaSelect.selectedIndex];
+        if (opt.value) {
+            formulaInput.value = opt.dataset.formula || '';
+            if (opt.dataset.topN) topNInput.value = opt.dataset.topN;
+            formulaSaveName.value = opt.textContent;
+            deleteFormulaBtn.classList.remove('hidden');
+        } else {
+            deleteFormulaBtn.classList.add('hidden');
+        }
+        invalidatePreview();
+    });
+
+    // Validate formula (AJAX)
+    function validateFormulaInput() {
+        const formula = formulaInput.value.trim();
+        if (!formula) {
+            formulaValidation.textContent = 'Formula tukša';
+            formulaValidation.className = 'text-[11px] text-gray-500';
+            return;
+        }
+        const fd = new FormData();
+        fd.append('formula', formula);
+        fetch('{{ route("formulas.validate") }}', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrfToken },
+            body: fd,
+        })
+        .then(r => r.json())
+        .then(json => {
+            if (json.valid) {
+                formulaValidation.textContent = '✓ Formula derīga (testa rezultāts ar vērtībām=1: ' + Number(json.sample_result).toFixed(4) + ')';
+                formulaValidation.className = 'text-[11px] text-emerald-600';
+            } else {
+                formulaValidation.textContent = '✗ ' + (json.error || 'Nederīga');
+                formulaValidation.className = 'text-[11px] text-red-600';
+            }
+        });
+    }
+    validateFormulaBtn.addEventListener('click', validateFormulaInput);
+    formulaInput.addEventListener('input', () => {
+        invalidatePreview();
+        formulaValidation.textContent = 'Formula nav validēta';
+        formulaValidation.className = 'text-[11px] text-gray-500';
+    });
+
+    // Save formula
+    saveFormulaBtn.addEventListener('click', () => {
+        const name = formulaSaveName.value.trim();
+        const formula = formulaInput.value.trim();
+        if (!name) {
+            formulaSaveMsg.textContent = 'Ievadi nosaukumu';
+            formulaSaveMsg.className = 'text-[11px] text-red-600';
+            formulaSaveMsg.classList.remove('hidden');
+            return;
+        }
+        if (!formula) {
+            formulaSaveMsg.textContent = 'Formula tukša';
+            formulaSaveMsg.className = 'text-[11px] text-red-600';
+            formulaSaveMsg.classList.remove('hidden');
+            return;
+        }
+        const fd = new FormData();
+        fd.append('name', name);
+        fd.append('formula', formula);
+        fd.append('top_n', topNInput.value || '20');
+        fetch('{{ route("formulas.store") }}', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+            body: fd,
+        })
+        .then(async r => ({ ok: r.ok, json: await r.json() }))
+        .then(({ ok, json }) => {
+            if (!ok) {
+                formulaSaveMsg.textContent = json.error || 'Saglabāšana neizdevās';
+                formulaSaveMsg.className = 'text-[11px] text-red-600';
+                formulaSaveMsg.classList.remove('hidden');
+                return;
+            }
+            // Update dropdown — add option if new, or just notify
+            const existing = Array.from(savedFormulaSelect.options).find(o => o.textContent === name);
+            if (!existing) {
+                const opt = document.createElement('option');
+                opt.value = json.data.id;
+                opt.textContent = json.data.name;
+                opt.dataset.formula = json.data.formula;
+                opt.dataset.topN = json.data.top_n;
+                savedFormulaSelect.appendChild(opt);
+            }
+            formulaSaveMsg.textContent = '✓ Saglabāts: ' + name;
+            formulaSaveMsg.className = 'text-[11px] text-emerald-600';
+            formulaSaveMsg.classList.remove('hidden');
+        });
+    });
+
+    // Delete saved formula
+    deleteFormulaBtn.addEventListener('click', () => {
+        const id = savedFormulaSelect.value;
+        if (!id) return;
+        if (!confirm('Dzēst formulu "' + savedFormulaSelect.options[savedFormulaSelect.selectedIndex].textContent + '"?')) return;
+
+        fetch(`/formulas/${id}`, {
+            method: 'DELETE',
+            headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+        })
+        .then(r => r.json())
+        .then(json => {
+            if (json.success) {
+                savedFormulaSelect.options[savedFormulaSelect.selectedIndex].remove();
+                savedFormulaSelect.value = '';
+                deleteFormulaBtn.classList.add('hidden');
+                formulaSaveMsg.textContent = '✓ Izdzēsts';
+                formulaSaveMsg.className = 'text-[11px] text-emerald-600';
+                formulaSaveMsg.classList.remove('hidden');
+            }
+        });
+    });
 
     // Invalidate the preview when any input changes
     function invalidatePreview() {
@@ -317,6 +546,7 @@
         formData.append('base_date', baseDate.value);
         formData.append('top_n', topNInput.value || '');
         formData.append('instrument_tickers', tickersHidden.value || '');
+        formData.append('formula', formulaInput.value || '');
 
         fetch('{{ route("backtests.preview") }}', {
             method: 'POST',
@@ -332,20 +562,7 @@
                 previewError.classList.remove('hidden');
                 return;
             }
-            // Render table
-            previewTbody.innerHTML = '';
-            data.picks.forEach((p, i) => {
-                const tr = document.createElement('tr');
-                const scoreText = p.score !== null ? Number(p.score).toFixed(4) : '—';
-                tr.innerHTML = `
-                    <td class="px-3 py-1.5 text-gray-500">${i + 1}</td>
-                    <td class="px-3 py-1.5 font-semibold text-gray-900">${p.ticker}</td>
-                    <td class="px-3 py-1.5 text-gray-600 truncate max-w-xs">${p.company_name || ''}</td>
-                    <td class="px-3 py-1.5 text-right tabular-nums text-gray-800">${scoreText}</td>
-                    <td class="px-3 py-1.5 text-right tabular-nums text-gray-600">${(p.weight * 100).toFixed(2)}%</td>
-                `;
-                previewTbody.appendChild(tr);
-            });
+            renderPreviewPicks(data.picks);
             previewResult.classList.remove('hidden');
             submitBtn.disabled = false;
         })
@@ -355,6 +572,115 @@
             previewError.textContent = 'Tīkla kļūda: ' + err.message;
             previewError.classList.remove('hidden');
         });
+    });
+
+    /* ─── Preview picks editing: weight ↔ amount two-way binding + custom_weights submit ─── */
+    const previewTotalWeight = document.getElementById('preview-total-weight');
+    const previewTotalAmount = document.getElementById('preview-total-amount');
+    const previewEqualWeightBtn = document.getElementById('preview-equal-weight-btn');
+    const customWeightsInput = document.getElementById('custom-weights-input');
+    const capitalInput = document.querySelector('input[name="capital"]');
+
+    let previewPicks = [];    // [{instrument_id, ticker, company_name, score, weight (0-1), amount}]
+
+    function getPreviewCapital() {
+        return Math.max(0, parseFloat(capitalInput.value) || 0);
+    }
+
+    function renderPreviewPicks(picks) {
+        previewPicks = picks.map(p => ({
+            instrument_id: p.instrument_id || null,        // backend may need to provide this
+            ticker: p.ticker,
+            company_name: p.company_name,
+            score: p.score,
+            weight: p.weight,
+            amount: p.weight * getPreviewCapital(),
+        }));
+        previewTbody.innerHTML = '';
+        previewPicks.forEach((p, i) => {
+            const tr = document.createElement('tr');
+            const scoreText = p.score !== null ? Number(p.score).toFixed(4) : '—';
+            tr.innerHTML = `
+                <td class="px-3 py-1.5 text-gray-500">${i + 1}</td>
+                <td class="px-3 py-1.5 font-semibold text-gray-900">${p.ticker}</td>
+                <td class="px-3 py-1.5 text-gray-600 truncate max-w-xs">${p.company_name || ''}</td>
+                <td class="px-3 py-1.5 text-right tabular-nums text-gray-800">${scoreText}</td>
+                <td class="px-3 py-1.5">
+                    <input type="number" data-idx="${i}" data-field="weight" step="0.1" min="0" max="100" value="${(p.weight * 100).toFixed(2)}"
+                           class="w-full rounded border border-gray-300 px-2 py-1 text-xs text-right tabular-nums focus:border-blue-500 outline-none">
+                </td>
+                <td class="px-3 py-1.5">
+                    <input type="number" data-idx="${i}" data-field="amount" step="0.01" min="0" value="${p.amount.toFixed(2)}"
+                           class="w-full rounded border border-gray-300 px-2 py-1 text-xs text-right tabular-nums focus:border-blue-500 outline-none">
+                </td>
+            `;
+            previewTbody.appendChild(tr);
+        });
+        updatePreviewTotals();
+    }
+
+    function updatePreviewTotals() {
+        const capital = getPreviewCapital();
+        const totalAmount = previewPicks.reduce((s, p) => s + p.amount, 0);
+        const totalWeight = previewPicks.reduce((s, p) => s + p.weight, 0) * 100;
+
+        previewTotalWeight.textContent = totalWeight.toFixed(1);
+        previewTotalAmount.textContent = totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        const overspent = totalAmount > capital + 0.01;
+        previewTotalWeight.classList.toggle('text-red-600', totalWeight > 100.5);
+        previewTotalAmount.classList.toggle('text-red-600', overspent);
+
+        // Update hidden input with custom weights array
+        const customWeights = previewPicks
+            .filter(p => p.weight > 0 && p.instrument_id)
+            .map(p => ({ instrument_id: p.instrument_id, weight: p.weight }));
+        customWeightsInput.value = JSON.stringify(customWeights);
+    }
+
+    previewTbody.addEventListener('input', e => {
+        const idx = parseInt(e.target.dataset.idx);
+        const field = e.target.dataset.field;
+        if (isNaN(idx) || !field) return;
+
+        const val = parseFloat(e.target.value) || 0;
+        const capital = getPreviewCapital();
+
+        if (field === 'weight') {
+            previewPicks[idx].weight = val / 100;
+            previewPicks[idx].amount = (val / 100) * capital;
+            const amountInput = previewTbody.querySelector(`input[data-idx="${idx}"][data-field="amount"]`);
+            if (amountInput) amountInput.value = previewPicks[idx].amount.toFixed(2);
+        } else if (field === 'amount') {
+            previewPicks[idx].amount = val;
+            previewPicks[idx].weight = capital > 0 ? val / capital : 0;
+            const weightInput = previewTbody.querySelector(`input[data-idx="${idx}"][data-field="weight"]`);
+            if (weightInput) weightInput.value = (previewPicks[idx].weight * 100).toFixed(2);
+        }
+        updatePreviewTotals();
+    });
+
+    previewEqualWeightBtn.addEventListener('click', () => {
+        if (previewPicks.length === 0) return;
+        const w = 1 / previewPicks.length;
+        const capital = getPreviewCapital();
+        previewPicks.forEach(p => {
+            p.weight = w;
+            p.amount = w * capital;
+        });
+        renderPreviewPicks(previewPicks.map(p => ({ ...p, weight: w })));
+    });
+
+    // Recalc amounts when capital changes
+    capitalInput.addEventListener('input', () => {
+        const capital = getPreviewCapital();
+        previewPicks.forEach(p => p.amount = p.weight * capital);
+        // Update amount inputs in DOM
+        previewPicks.forEach((p, idx) => {
+            const ai = previewTbody.querySelector(`input[data-idx="${idx}"][data-field="amount"]`);
+            if (ai) ai.value = p.amount.toFixed(2);
+        });
+        updatePreviewTotals();
     });
 })();
 </script>

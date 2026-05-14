@@ -22,8 +22,15 @@ class BacktestController extends Controller
      */
     public function create(): View
     {
+        $savedFormulas = \App\Models\UserFormula::where('user_id', \Illuminate\Support\Facades\Auth::id())
+            ->orderByDesc('updated_at')
+            ->get(['id', 'name', 'description', 'formula', 'top_n']);
+
         return view('backtests.create', [
             'strategies' => $this->registry->all(),
+            'savedFormulas' => $savedFormulas,
+            'formulaVariables' => \App\Services\Backtest\Strategies\CustomFormulaStrategy::VARIABLES,
+            'formulaFunctions' => \App\Services\Backtest\Strategies\CustomFormulaStrategy::FUNCTIONS,
         ]);
     }
 
@@ -38,6 +45,7 @@ class BacktestController extends Controller
             'base_date' => 'required|date|after_or_equal:2018-04-01|before_or_equal:today',
             'top_n' => 'nullable|integer|min:1|max:100',
             'instrument_tickers' => 'nullable|string',
+            'formula' => 'nullable|string|max:2000',
         ]);
 
         $strategy = $this->registry->get($request->input('strategy'));
@@ -48,6 +56,9 @@ class BacktestController extends Controller
         $params = [];
         if ($request->filled('top_n')) {
             $params['top_n'] = (int) $request->input('top_n');
+        }
+        if ($request->filled('formula')) {
+            $params['formula'] = $request->input('formula');
         }
         if ($request->filled('instrument_tickers')) {
             $tickers = collect(explode(',', $request->input('instrument_tickers')))
@@ -79,6 +90,7 @@ class BacktestController extends Controller
         $result = $selections->map(function ($s) use ($instruments) {
             $inst = $instruments->get($s['instrument_id']);
             return [
+                'instrument_id' => $s['instrument_id'],
                 'ticker' => $inst?->ticker ?? '?',
                 'company_name' => $inst?->company_name ?? '',
                 'weight' => $s['weight'],
@@ -107,6 +119,8 @@ class BacktestController extends Controller
             'capital' => 'required|numeric|min:100',
             'top_n' => 'nullable|integer|min:1|max:100',
             'instrument_tickers' => 'nullable|string',  // comma-separated for equal_weight
+            'formula' => 'nullable|string|max:2000',    // for custom_formula
+            'custom_weights' => 'nullable|string',      // JSON: [{instrument_id, weight}, ...] override
         ], [
             'base_date.after_or_equal' => 'Bāzes datumam jābūt 2018-04-01 vai vēlāk (SimFin fundamentālie dati sākas no 2018).',
         ]);
@@ -120,6 +134,9 @@ class BacktestController extends Controller
         $params = [];
         if ($request->filled('top_n')) {
             $params['top_n'] = (int) $request->input('top_n');
+        }
+        if ($request->filled('formula')) {
+            $params['formula'] = $request->input('formula');
         }
         if ($request->filled('instrument_tickers')) {
             $tickers = collect(explode(',', $request->input('instrument_tickers')))
@@ -139,6 +156,15 @@ class BacktestController extends Controller
             $params['instrument_ids'] = $ids->values()->all();
         }
 
+        // Custom weights override (from wizard preview table editing)
+        $customWeights = null;
+        if ($request->filled('custom_weights')) {
+            $customWeights = json_decode($request->input('custom_weights'), true);
+            if (! is_array($customWeights)) {
+                return back()->withErrors(['strategy' => 'Custom weights formāts kļūdains'])->withInput();
+            }
+        }
+
         // Lietotāju izveidotie backtesti vienmēr ir personīgi.
         // Sistēmas portfeļus (modeļu paraugus) admin manuāli izveido caur tinker / seed.
         try {
@@ -147,6 +173,7 @@ class BacktestController extends Controller
                 'description' => $request->input('description'),
                 'base_date' => $request->input('base_date'),
                 'capital' => (float) $request->input('capital'),
+                'custom_weights' => $customWeights,
                 'params' => $params,
                 'is_system' => false,
                 'user_id' => Auth::id(),
