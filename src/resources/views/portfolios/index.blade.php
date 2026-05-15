@@ -77,10 +77,7 @@
         <div id="quantstats-overlay" class="fixed inset-0 bg-black/30 z-40 hidden transition-opacity"></div>
         <aside id="quantstats-drawer" class="fixed top-0 right-0 h-screen w-full sm:w-[90%] md:w-[1100px] max-w-[95vw] bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-300 ease-out flex flex-col">
             <header class="flex items-center justify-between px-5 py-4 border-b border-gray-200 shrink-0">
-                <div>
-                    <h2 class="text-base font-bold text-gray-900">QuantStats atskaite</h2>
-                    <p id="quantstats-subtitle" class="text-xs text-gray-500 mt-0.5"></p>
-                </div>
+                <h2 class="text-base font-bold text-gray-900">QuantStats atskaite</h2>
                 <div class="flex items-center gap-2">
                     <a id="quantstats-download" href="#" download
                        class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors hidden"
@@ -133,8 +130,6 @@
                             <h2 class="text-lg font-semibold text-gray-900">{{ $portfolio->name }}</h2>
                             <p class="text-sm text-gray-500 mt-1">
                                 {{ $portfolio->instruments_count }} instrumenti
-                                &middot;
-                                Brīvais kapitāls: ${{ number_format((float)$portfolio->free_capital, 2) }}
                             </p>
                             @if ($portfolio->description)
                                 <p class="text-xs text-gray-400 mt-1 truncate">{{ $portfolio->description }}</p>
@@ -357,7 +352,6 @@
     const overlay = document.getElementById('quantstats-overlay');
     const closeBtn = document.getElementById('close-quantstats-btn');
     const body = document.getElementById('quantstats-body');
-    const subtitle = document.getElementById('quantstats-subtitle');
     const downloadLink = document.getElementById('quantstats-download');
 
     function openDrawer() {
@@ -376,7 +370,6 @@
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
 
     function loadQuantStats(id, name) {
-        subtitle.textContent = name;
         downloadLink.href = `/portfelis/${id}/quantstats?download=1`;
         downloadLink.classList.add('hidden');
         body.innerHTML = `

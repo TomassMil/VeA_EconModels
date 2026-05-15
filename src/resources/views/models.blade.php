@@ -6,7 +6,7 @@
         <div class="mb-10">
             <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">Investīciju teorijas — vērtēšanas modeļi</h1>
             <p class="text-gray-600 mt-2 max-w-3xl">
-                50 nosaukti akadēmiskie modeļi, sadalīti 6 kategorijās. Katrs modelis ar autoru, gadu un īsu pielietojuma aprakstu.
+                50 nosaukti modeļi, sadalīti 6 kategorijās. Katrs modelis ar autoru, gadu un īsu pielietojuma aprakstu.
             </p>
         </div>
 

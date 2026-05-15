@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="py-10">
-    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
         <a href="{{ route('portfolios.index') }}" class="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 mb-4">
             ← Atpakaļ uz Portfeļiem
@@ -29,84 +29,79 @@
         <form action="{{ route('backtests.store') }}" method="POST" id="backtest-form" class="space-y-5">
             @csrf
 
-            {{-- Strategy selector --}}
+            {{-- Portfolio name + description + strategy (combined, horizontal) --}}
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Stratēģija</label>
-                <select name="strategy" id="strategy-select" required
-                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
-                    @foreach ($strategies as $s)
-                        <option value="{{ $s->key() }}"
-                                data-description="{{ $s->description() }}"
-                                data-needs-tickers="{{ $s->key() === 'equal_weight_buy_hold' ? '1' : '0' }}"
-                                data-needs-topn="{{ str_ends_with($s->key(), '_top_n') || $s->key() === 'custom_formula' ? '1' : '0' }}"
-                                data-needs-formula="{{ $s->key() === 'custom_formula' ? '1' : '0' }}"
-                                {{ old('strategy') === $s->key() ? 'selected' : '' }}>
-                            {{ $s->name() }}
-                        </option>
-                    @endforeach
-                </select>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <div class="flex-1">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Portfeļa nosaukums</label>
+                        <input type="text" name="name" required maxlength="100" value="{{ old('name') }}"
+                               placeholder="Piem.: Graham Top-20 (2020 bāze)"
+                               class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Apraksts (neobligāti)</label>
+                        <textarea name="description" maxlength="500" rows="1"
+                                  placeholder="Īss apraksts par šo backtestu"
+                                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">{{ old('description') }}</textarea>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Stratēģija</label>
+                        <select name="strategy" id="strategy-select" required
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
+                            @foreach ($strategies as $s)
+                                <option value="{{ $s->key() }}"
+                                        data-description="{{ $s->description() }}"
+                                        data-needs-tickers="{{ $s->key() === 'equal_weight_buy_hold' ? '1' : '0' }}"
+                                        data-needs-topn="{{ str_ends_with($s->key(), '_top_n') || $s->key() === 'custom_formula' ? '1' : '0' }}"
+                                        data-needs-formula="{{ $s->key() === 'custom_formula' ? '1' : '0' }}"
+                                        {{ old('strategy') === $s->key() ? 'selected' : '' }}>
+                                    {{ $s->name() }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
                 <p id="strategy-description" class="text-xs text-gray-500 mt-2"></p>
             </div>
 
-            {{-- Portfolio name + description --}}
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Portfeļa nosaukums</label>
-                    <input type="text" name="name" required maxlength="100" value="{{ old('name') }}"
-                           placeholder="Piem.: Graham Top-20 (2020 bāze)"
-                           class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
+            {{-- Base date + capital + Top N (Top N hidden for ticker strategies) --}}
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <div class="flex-1">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <span class="inline-block w-2 h-2 bg-purple-500 rounded-full mr-1.5 align-middle"></span>
+                            Bāzes datums
+                        </label>
+                        <input type="date" name="base_date" id="base-date" required
+                               min="2018-04-01" max="{{ now()->toDateString() }}"
+                               value="{{ old('base_date', '2021-04-01') }}"
+                               class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Sākuma kapitāls ($)</label>
+                        <input type="number" name="capital" required min="100" step="100"
+                               value="{{ old('capital', 10000) }}"
+                               class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div id="param-top-n" class="flex-1 hidden">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Top N akcijas</label>
+                        <input type="number" name="top_n" id="top-n-input" min="1" max="100" value="{{ old('top_n', 20) }}"
+                               class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Apraksts (neobligāti)</label>
-                    <textarea name="description" maxlength="500" rows="2"
-                              placeholder="Īss apraksts par šo backtestu"
-                              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">{{ old('description') }}</textarea>
+                <div class="relative inline-flex group mt-2">
+                    <button type="button" tabindex="0"
+                            class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-blue-700 hover:text-blue-800 cursor-help">
+                        <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                        </svg>
+                        Walk-forward backtest princips
+                    </button>
+                    <div class="absolute left-0 top-full mt-1 z-20 hidden group-hover:block group-focus-within:block w-80 sm:w-96 p-3 bg-white border border-blue-200 rounded-lg shadow-lg text-xs text-gray-700 leading-relaxed">
+                        Stratēģija izvēlas akcijas <strong>pirms</strong> bāzes datuma (optimizācijas periods, izmantojot fundamentālos datus no FY pirms bāzes gada), un tad <strong>tur tās pēc bāzes datuma</strong> līdz šim brīdim (testēšanas periods). Bāzes datums = robeža starp diviem periodiem.
+                        <span class="block mt-2 text-gray-600"><strong>Min 2018-04-01</strong> (SimFin sākas 2018).</span>
+                    </div>
                 </div>
-            </div>
-
-            {{-- Walk-forward explanation --}}
-            <div class="bg-gradient-to-r from-purple-50 to-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-gray-700">
-                <p class="font-semibold text-gray-800 mb-1.5 flex items-center gap-1.5">
-                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-                    </svg>
-                    Walk-forward backtest princips
-                </p>
-                <p class="leading-relaxed">
-                    Stratēģija izvēlas akcijas <strong>pirms</strong> bāzes datuma (optimizācijas periods, izmantojot fundamentālos datus no FY pirms bāzes gada), un tad <strong>tur tās pēc bāzes datuma</strong> līdz šim brīdim (testēšanas periods). Bāzes datums = robeža starp diviem periodiem.
-                </p>
-            </div>
-
-            {{-- Base date + capital --}}
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">
-                        <span class="inline-block w-2 h-2 bg-purple-500 rounded-full mr-1.5 align-middle"></span>
-                        Bāzes datums (testēšanas sākums)
-                    </label>
-                    <input type="date" name="base_date" id="base-date" required
-                           min="2018-04-01" max="{{ now()->toDateString() }}"
-                           value="{{ old('base_date', '2021-04-01') }}"
-                           class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
-                    <p class="text-[11px] text-gray-500 mt-1">
-                        Optimizācijas dati no FY pirms šī datuma. Testēšana no šī datuma līdz šim brīdim.
-                        <strong>Min 2018-04-01</strong> (SimFin sākas 2018).
-                    </p>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Sākuma kapitāls ($)</label>
-                    <input type="number" name="capital" required min="100" step="100"
-                           value="{{ old('capital', 10000) }}"
-                           class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
-                </div>
-            </div>
-
-            {{-- Strategy-specific params --}}
-            <div id="param-top-n" class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hidden">
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Top N akcijas</label>
-                <input type="number" name="top_n" id="top-n-input" min="1" max="100" value="{{ old('top_n', 20) }}"
-                       class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
-                <p class="text-[11px] text-gray-500 mt-1">Cik akcijas ar augstāko score iekļaut portfelī (vienlīdzīgi sadalīts)</p>
             </div>
 
             <div id="param-tickers" class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hidden">
@@ -145,13 +140,47 @@
                     </div>
                 </div>
 
-                {{-- Cheatsheet --}}
-                <details class="bg-gradient-to-r from-purple-50 to-blue-50 border border-blue-200 rounded-lg">
-                    <summary class="cursor-pointer px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-blue-50">
-                        📖 Pieejamie mainīgie ({{ count($formulaVariables) }}) un funkcijas ({{ count($formulaFunctions) }})
-                    </summary>
-                    <div class="p-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                {{-- Cheatsheet toggle --}}
+                <div class="flex items-center justify-between">
+                    <label class="block text-sm font-semibold text-gray-700">Formula</label>
+                    <button type="button" id="cheatsheet-toggle"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors">
+                        <span>📖 Pieejamie mainīgie ({{ count($formulaVariables) }}) un funkcijas ({{ count($formulaFunctions) }})</span>
+                        <span id="cheatsheet-arrow" class="transition-transform">◀</span>
+                    </button>
+                </div>
+
+                {{-- Two-column: formula on left, cheatsheet side-panel on right --}}
+                <div class="flex flex-col lg:flex-row gap-3">
+                    <div class="flex-1 min-w-0 space-y-3">
+                        {{-- Formula textarea --}}
                         <div>
+                            <textarea name="formula" id="formula-input" rows="6"
+                                      placeholder="Piem.: roe + gross_margin * 0.5 - debt_to_equity"
+                                      class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">{{ old('formula') }}</textarea>
+                            <div class="flex items-center justify-between mt-1.5">
+                                <p id="formula-validation" class="text-[11px] text-gray-500">Formula tiks validēta, kad spied "Atlasīt akcijas"</p>
+                                <button type="button" id="validate-formula-btn" class="text-[11px] text-blue-600 hover:text-blue-700 font-medium">✓ Validēt</button>
+                            </div>
+                        </div>
+
+                        {{-- Save formula --}}
+                        <div class="flex gap-2 items-end pt-2 border-t border-gray-100">
+                            <div class="flex-1">
+                                <label class="block text-[11px] font-medium text-gray-600 mb-1">Saglabāt kā:</label>
+                                <input type="text" id="formula-save-name" placeholder="Nosaukums..." maxlength="100"
+                                       class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
+                            </div>
+                            <button type="button" id="save-formula-btn" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 transition-colors">
+                                💾 Saglabāt
+                            </button>
+                        </div>
+                        <p id="formula-save-msg" class="text-[11px] hidden"></p>
+                    </div>
+
+                    {{-- Cheatsheet side panel (hidden by default; toggled via cheatsheet-toggle button) --}}
+                    <aside id="cheatsheet-panel" class="hidden lg:w-80 xl:w-96 shrink-0 bg-gradient-to-br from-purple-50 to-blue-50 border border-blue-200 rounded-lg p-3 text-xs max-h-[28rem] overflow-y-auto">
+                        <div class="mb-3">
                             <p class="font-semibold text-gray-700 mb-1.5">Mainīgie</p>
                             <ul class="space-y-0.5">
                                 @foreach ($formulaVariables as $v => $desc)
@@ -176,33 +205,8 @@
                                 </li>
                             </ul>
                         </div>
-                    </div>
-                </details>
-
-                {{-- Formula textarea --}}
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Formula</label>
-                    <textarea name="formula" id="formula-input" rows="3"
-                              placeholder="Piem.: roe + gross_margin * 0.5 - debt_to_equity"
-                              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">{{ old('formula') }}</textarea>
-                    <div class="flex items-center justify-between mt-1.5">
-                        <p id="formula-validation" class="text-[11px] text-gray-500">Formula tiks validēta, kad spied "Atlasīt akcijas"</p>
-                        <button type="button" id="validate-formula-btn" class="text-[11px] text-blue-600 hover:text-blue-700 font-medium">✓ Validēt</button>
-                    </div>
+                    </aside>
                 </div>
-
-                {{-- Save formula --}}
-                <div class="flex gap-2 items-end pt-2 border-t border-gray-100">
-                    <div class="flex-1">
-                        <label class="block text-[11px] font-medium text-gray-600 mb-1">Saglabāt kā:</label>
-                        <input type="text" id="formula-save-name" placeholder="Nosaukums..." maxlength="100"
-                               class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
-                    </div>
-                    <button type="button" id="save-formula-btn" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 transition-colors">
-                        💾 Saglabāt
-                    </button>
-                </div>
-                <p id="formula-save-msg" class="text-[11px] hidden"></p>
             </div>
 
             {{-- Preview button + result area --}}
@@ -233,6 +237,7 @@
                                     <th class="px-3 py-2 text-right text-[11px] font-semibold text-gray-600 uppercase">Score</th>
                                     <th class="px-3 py-2 text-right text-[11px] font-semibold text-gray-600 uppercase w-24">Svars %</th>
                                     <th class="px-3 py-2 text-right text-[11px] font-semibold text-gray-600 uppercase w-28">Summa $</th>
+                                    <th class="px-3 py-2 text-center text-[11px] font-semibold text-gray-600 uppercase w-10"></th>
                                 </tr>
                             </thead>
                             <tbody id="preview-tbody" class="divide-y divide-gray-100"></tbody>
@@ -241,6 +246,7 @@
                                     <td colspan="4" class="px-3 py-2 text-xs text-right font-semibold text-gray-700">Kopā:</td>
                                     <td class="px-3 py-2 text-right text-xs font-bold tabular-nums"><span id="preview-total-weight">100.0</span>%</td>
                                     <td class="px-3 py-2 text-right text-xs font-bold tabular-nums">$<span id="preview-total-amount">0.00</span></td>
+                                    <td class="px-3 py-2"></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -413,6 +419,15 @@
             formulaSaveMsg.className = 'text-[11px] text-emerald-600';
             formulaSaveMsg.classList.remove('hidden');
         });
+    });
+
+    // Cheatsheet toggle (side panel)
+    const cheatsheetToggle = document.getElementById('cheatsheet-toggle');
+    const cheatsheetPanel = document.getElementById('cheatsheet-panel');
+    const cheatsheetArrow = document.getElementById('cheatsheet-arrow');
+    cheatsheetToggle.addEventListener('click', () => {
+        const isHidden = cheatsheetPanel.classList.toggle('hidden');
+        cheatsheetArrow.style.transform = isHidden ? '' : 'rotate(180deg)';
     });
 
     // Delete saved formula
@@ -589,13 +604,17 @@
 
     function renderPreviewPicks(picks) {
         previewPicks = picks.map(p => ({
-            instrument_id: p.instrument_id || null,        // backend may need to provide this
+            instrument_id: p.instrument_id || null,
             ticker: p.ticker,
             company_name: p.company_name,
             score: p.score,
             weight: p.weight,
             amount: p.weight * getPreviewCapital(),
         }));
+        renderPreviewRows();
+    }
+
+    function renderPreviewRows() {
         previewTbody.innerHTML = '';
         previewPicks.forEach((p, i) => {
             const tr = document.createElement('tr');
@@ -612,6 +631,10 @@
                 <td class="px-3 py-1.5">
                     <input type="number" data-idx="${i}" data-field="amount" step="any" min="0" value="${p.amount.toFixed(2)}"
                            class="w-full rounded border border-gray-300 px-2 py-1 text-xs text-right tabular-nums focus:border-blue-500 outline-none">
+                </td>
+                <td class="px-3 py-1.5 text-center">
+                    <button type="button" data-remove-idx="${i}" title="Noņemt no atlases"
+                            class="inline-flex items-center justify-center w-6 h-6 rounded text-red-500 hover:text-white hover:bg-red-500 transition-colors">×</button>
                 </td>
             `;
             previewTbody.appendChild(tr);
@@ -637,6 +660,17 @@
             .map(p => ({ instrument_id: p.instrument_id, weight: p.weight }));
         customWeightsInput.value = JSON.stringify(customWeights);
     }
+
+    // Remove pick from selection
+    previewTbody.addEventListener('click', e => {
+        const removeIdx = e.target.dataset?.removeIdx;
+        if (removeIdx === undefined) return;
+        const idx = parseInt(removeIdx);
+        if (isNaN(idx)) return;
+        previewPicks.splice(idx, 1);
+        renderPreviewRows();
+        if (previewPicks.length === 0) submitBtn.disabled = true;
+    });
 
     previewTbody.addEventListener('input', e => {
         const idx = parseInt(e.target.dataset.idx);
@@ -668,7 +702,7 @@
             p.weight = w;
             p.amount = w * capital;
         });
-        renderPreviewPicks(previewPicks.map(p => ({ ...p, weight: w })));
+        renderPreviewRows();
     });
 
     // Recalc amounts when capital changes

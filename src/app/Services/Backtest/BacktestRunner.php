@@ -49,13 +49,14 @@ class BacktestRunner
                 throw new \RuntimeException('Custom weights neatstāja nevienu instrumentu.');
             }
 
-            // Normalize weights to sum to 1.0 (in case user input doesn't quite)
+            // Respektējam lietotāja patieso svaru summu — ja < 1.0, atliek brīvais kapitāls;
+            // ja > 1.0 (+ neliels epsilons floating-point dēļ), noraidām, lai nepārsniegtu kapitālu.
             $weightSum = $selections->sum('weight');
-            if ($weightSum > 0) {
-                $selections = $selections->map(function ($s) use ($weightSum) {
-                    $s['weight'] = $s['weight'] / $weightSum;
-                    return $s;
-                });
+            if ($weightSum > 1.0001) {
+                throw new \RuntimeException(sprintf(
+                    'Svaru summa pārsniedz 100%% (%.2f%%). Samazini svarus tabulā.',
+                    $weightSum * 100
+                ));
             }
         }
 

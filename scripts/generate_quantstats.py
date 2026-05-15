@@ -33,6 +33,59 @@ def db_connect():
     )
 
 
+def load_portfolio_meta(conn, portfolio_id: int) -> tuple[str, list[str]]:
+    """Atgriež portfeļa nosaukumu un tā instrumentu ticker sarakstu."""
+    cur = conn.cursor()
+    cur.execute("SELECT name FROM portfolios WHERE id = %s", (portfolio_id,))
+    row = cur.fetchone()
+    name = row[0] if row else f"Portfelis #{portfolio_id}"
+
+    cur.execute(
+        """
+        SELECT i.ticker
+        FROM portfolio_instrument pi
+        JOIN instruments i ON i.id = pi.instrument_id
+        WHERE pi.portfolio_id = %s AND i.ticker IS NOT NULL
+        ORDER BY i.ticker
+        """,
+        (portfolio_id,),
+    )
+    tickers = [r[0] for r in cur.fetchall()]
+    return name, tickers
+
+
+def inject_meta_into_html(path: Path, name: str, tickers: list[str]) -> None:
+    """Iesprauž portfeļa nosaukuma + tickeru bloku QuantStats HTML augšā (pēc pirmā </h1>)."""
+    if not path.exists():
+        return
+    html = path.read_text(encoding="utf-8")
+
+    chips = "".join(
+        f'<span style="display:inline-block;background:#eff6ff;border:1px solid #bfdbfe;'
+        f'border-radius:9999px;padding:2px 8px;margin:2px;font-family:ui-monospace,Menlo,monospace;'
+        f'font-size:11px;font-weight:600;color:#1d4ed8;">{t}</span>'
+        for t in tickers
+    )
+    empty_msg = '<span style="color:#9ca3af;font-size:12px;">Nav instrumentu</span>'
+    tickers_html = chips if chips else empty_msg
+    tickers_block = (
+        f'<div style="margin:6px 0 14px 0;">'
+        f'<div style="font-size:12px;color:#6b7280;font-weight:600;margin-bottom:4px;">'
+        f'Instrumenti ({len(tickers)})</div>'
+        f'<div>{tickers_html}</div>'
+        f'</div>'
+    )
+    name_block = (
+        f'<div style="font-size:18px;font-weight:700;color:#111827;margin:8px 0 2px 0;">{name}</div>'
+    )
+
+    # Iespraužam tūlīt aiz pirmā </h1> — tur ir QuantStats virsraksts
+    needle = "</h1>"
+    if needle in html:
+        html = html.replace(needle, needle + name_block + tickers_block, 1)
+        path.write_text(html, encoding="utf-8")
+
+
 def load_portfolio_value_series(conn, portfolio_id: int) -> pd.Series:
     """
     Rekonstruē portfeļa kopējās vērtības dienas sēriju.
@@ -129,6 +182,7 @@ def main():
     conn = db_connect()
     try:
         values = load_portfolio_value_series(conn, portfolio_id)
+        portfolio_name, tickers = load_portfolio_meta(conn, portfolio_id)
     finally:
         conn.close()
 
@@ -144,9 +198,13 @@ def main():
         returns,
         benchmark="SPY",
         output=str(output_path),
-        title=f"Portfeļa #{portfolio_id} atskaite",
+        title=portfolio_name,
         download_filename=output_path.name,
     )
+
+    # Pielikam portfeļa nosaukumu + ticker chipus virs QuantStats sākotnējā HTML
+    inject_meta_into_html(output_path, portfolio_name, tickers)
+
     print(f"OK: {output_path}")
 
 

@@ -26,7 +26,7 @@
                     </div>
                     <div>
                         <h3 class="font-semibold text-gray-900 group-hover:text-purple-700">Investīciju teorijas</h3>
-                        <p class="text-sm text-gray-600 mt-1">50 akadēmiskie vērtēšanas modeļi: Graham, Altman Z, Gordon DDM, Black-Scholes u.c.</p>
+                        <p class="text-sm text-gray-600 mt-1">50 vērtēšanas modeļi: Graham, Altman Z, Gordon DDM, Black-Scholes u.c.</p>
                     </div>
                 </div>
             </a>
