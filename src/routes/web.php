@@ -132,6 +132,7 @@ Route::middleware('auth')->group(function () use ($valuationCategories, $feature
     Route::get('/fundamentali', [InstrumentController::class, 'fundamentalIndex'])->name('fundamentals.index');
     Route::get('/fundamentali/search', [InstrumentController::class, 'search'])->name('instruments.search');
     Route::get('/fundamentali/filter', [InstrumentController::class, 'filter'])->name('instruments.filter');
+    Route::get('/fundamentali/batch', [InstrumentController::class, 'batchByTickers'])->name('instruments.batch');
     Route::get('/fundamentali/{instrument}', [InstrumentController::class, 'fundamentalShow'])->name('fundamentals.show');
 
     // Tehniskie dati — app-shell ar middle column (screener) + right column (chart + Engel)

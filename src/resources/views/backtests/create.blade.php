@@ -606,11 +606,11 @@
                 <td class="px-3 py-1.5 text-gray-600 truncate max-w-xs">${p.company_name || ''}</td>
                 <td class="px-3 py-1.5 text-right tabular-nums text-gray-800">${scoreText}</td>
                 <td class="px-3 py-1.5">
-                    <input type="number" data-idx="${i}" data-field="weight" step="0.1" min="0" max="100" value="${(p.weight * 100).toFixed(2)}"
+                    <input type="number" data-idx="${i}" data-field="weight" step="any" min="0" max="100" value="${(p.weight * 100).toFixed(2)}"
                            class="w-full rounded border border-gray-300 px-2 py-1 text-xs text-right tabular-nums focus:border-blue-500 outline-none">
                 </td>
                 <td class="px-3 py-1.5">
-                    <input type="number" data-idx="${i}" data-field="amount" step="0.01" min="0" value="${p.amount.toFixed(2)}"
+                    <input type="number" data-idx="${i}" data-field="amount" step="any" min="0" value="${p.amount.toFixed(2)}"
                            class="w-full rounded border border-gray-300 px-2 py-1 text-xs text-right tabular-nums focus:border-blue-500 outline-none">
                 </td>
             `;

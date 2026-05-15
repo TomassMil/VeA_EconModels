@@ -220,6 +220,43 @@ class InstrumentController extends Controller
         ]);
     }
 
+    /**
+     * Bulk lookup: pieņem komatu atdalītu tickeru sarakstu, atgriež informāciju katram.
+     * Tickeri, kas nav DB, atgriežas ar found=false.
+     * Saglabā lietotāja ievades secību.
+     */
+    public function batchByTickers(Request $request): JsonResponse
+    {
+        $tickers = collect(explode(',', $request->query('tickers', '')))
+            ->map(fn ($t) => strtoupper(trim($t)))
+            ->filter()
+            ->unique()
+            ->take(100)             // cap to prevent abuse
+            ->values()
+            ->all();
+
+        if (empty($tickers)) {
+            return response()->json(['data' => []]);
+        }
+
+        $found = Instrument::whereIn('ticker', $tickers)
+            ->get(['id', 'ticker', 'company_name', 'sector'])
+            ->keyBy(fn ($i) => strtoupper($i->ticker));
+
+        $result = collect($tickers)->map(function ($t) use ($found) {
+            $inst = $found->get($t);
+            return [
+                'ticker' => $t,
+                'found' => (bool) $inst,
+                'id' => $inst?->id,
+                'company_name' => $inst?->company_name,
+                'sector' => $inst?->sector,
+            ];
+        });
+
+        return response()->json(['data' => $result]);
+    }
+
     public function search(Request $request): JsonResponse
     {
         $rawSearch = trim((string) $request->query('q', ''));

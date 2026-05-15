@@ -29,7 +29,7 @@
             {{-- Pamatdati --}}
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
                 <h2 class="text-sm font-semibold text-gray-700">Pamatdati</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-xs text-gray-600 mb-1">Nosaukums *</label>
                         <input type="text" name="name" required maxlength="100" value="{{ old('name') }}"
@@ -38,9 +38,17 @@
                     </div>
                     <div>
                         <label class="block text-xs text-gray-600 mb-1">Sākuma kapitāls ($) *</label>
-                        <input type="number" name="capital" id="capital-input" required min="1" step="100"
+                        <input type="number" name="capital" id="capital-input" required min="100" step="any"
                                value="{{ old('capital', 10000) }}"
                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">Bāzes datums *</label>
+                        <input type="date" id="base-date-input" required
+                               min="{{ $earliestDataDate ?? '2014-01-01' }}" max="{{ $latestDataDate ?? now()->toDateString() }}"
+                               value="{{ old('base_date', '2023-01-03') }}"
+                               class="w-full rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none">
+                        <p class="text-[10px] text-amber-700 mt-1">Default visiem pirkumiem. Var mainīt katram atsevišķi tabulā.</p>
                     </div>
                 </div>
                 <div>
@@ -61,12 +69,16 @@
                     </button>
                 </div>
 
-                <div class="relative mb-3">
-                    <input type="text" id="ticker-search" placeholder="🔍 Meklēt ticker vai uzņēmuma nosaukumu, klikšķini lai pievienotu..."
+                <div class="relative mb-2">
+                    <input type="text" id="ticker-search" placeholder="🔍 Meklēt vai ievadīt sarakstu: AAPL, MSFT, NVDA (Enter)"
                            autocomplete="off"
                            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
                     <div id="ticker-search-results" class="absolute z-20 hidden bg-white border border-gray-200 rounded-lg shadow-lg w-full mt-1 max-h-60 overflow-y-auto"></div>
                 </div>
+                <p class="text-[11px] text-gray-500 mb-3">
+                    💡 Tips: ieraksti vairākus atdalītus ar komatu un nospied <kbd class="px-1 bg-gray-100 border border-gray-300 rounded">Enter</kbd>.
+                    Ar svariem: <code class="text-blue-700">AAPL 20%, MSFT 15%, NVDA</code> — atlikušais sadalīsies vienlīdzīgi
+                </p>
 
                 <div class="overflow-x-auto">
                     <table class="min-w-full text-sm">
@@ -128,6 +140,7 @@
     const dataMaxDate = '{{ $latestDataDate ?? now()->toDateString() }}';
 
     const capitalInput = document.getElementById('capital-input');
+    const baseDateInput = document.getElementById('base-date-input');
     const tickerSearch = document.getElementById('ticker-search');
     const tickerResults = document.getElementById('ticker-search-results');
     const picksTbody = document.getElementById('picks-tbody');
@@ -161,11 +174,11 @@
                 <td class="px-2 py-2 font-semibold text-gray-900">${p.ticker}</td>
                 <td class="px-2 py-2 text-xs text-gray-600 truncate max-w-[200px]">${p.company_name || ''}</td>
                 <td class="px-2 py-2">
-                    <input type="number" data-idx="${idx}" data-field="weight" step="0.1" min="0" max="100" value="${p.weight.toFixed(2)}"
+                    <input type="number" data-idx="${idx}" data-field="weight" step="any" min="0" max="100" value="${p.weight.toFixed(2)}"
                            class="w-full rounded border border-gray-300 px-2 py-1 text-xs text-right tabular-nums focus:border-blue-500 outline-none">
                 </td>
                 <td class="px-2 py-2">
-                    <input type="number" data-idx="${idx}" data-field="amount" step="0.01" min="0" value="${p.amount.toFixed(2)}"
+                    <input type="number" data-idx="${idx}" data-field="amount" step="any" min="0" value="${p.amount.toFixed(2)}"
                            class="w-full rounded border border-gray-300 px-2 py-1 text-xs text-right tabular-nums focus:border-blue-500 outline-none">
                 </td>
                 <td class="px-2 py-2">
@@ -278,6 +291,25 @@
         render();
     });
 
+    // Base date change → propagate to all picks (overrides their individual dates)
+    baseDateInput.addEventListener('change', () => {
+        const newDate = baseDateInput.value;
+        if (!newDate) return;
+        picks.forEach(p => p.date = newDate);
+        render();
+    });
+
+    // Submit safety net — regenerate hidden inputs at submit time
+    document.getElementById('portfolio-form').addEventListener('submit', (e) => {
+        if (picks.length === 0) {
+            e.preventDefault();
+            alert('Pievieno vismaz vienu instrumentu pirms portfeļa izveides');
+            return;
+        }
+        renderHiddenInputs();      // last-chance to ensure hidden inputs reflect current picks
+        console.log('Submitting portfolio with', picks.length, 'picks:', picks);
+    });
+
     equalWeightBtn.addEventListener('click', () => {
         if (picks.length === 0) return;
         const w = 100 / picks.length;
@@ -343,12 +375,95 @@
             company_name: companyName,
             weight: w,
             amount: (w / 100) * capital,
-            date: dataMaxDate,    // default to latest available
+            date: baseDateInput.value || dataMaxDate,    // default to base date (or latest)
         });
         tickerSearch.value = '';
         tickerResults.classList.add('hidden');
         render();
     }
+
+    /* ─── Bulk input on Enter: "AAPL, MSFT 20%, NVDA" ─── */
+    function parseBulkInput(text) {
+        return text.split(',').map(s => s.trim()).filter(Boolean).map(item => {
+            // Match: TICKER + optional " number(.number)? %?"
+            const m = item.match(/^([A-Za-z][A-Za-z0-9.\-]*)\s*(\d+(?:\.\d+)?)?\s*%?$/);
+            if (!m) return { ticker: item.toUpperCase(), weight: null, invalid: true };
+            return {
+                ticker: m[1].toUpperCase(),
+                weight: m[2] !== undefined ? parseFloat(m[2]) : null,
+            };
+        });
+    }
+
+    async function addBulkPicks(text) {
+        const parsed = parseBulkInput(text);
+        if (!parsed.length) return;
+
+        // Filter out duplicates already in picks
+        const existingTickers = new Set(picks.map(p => p.ticker));
+        const newPicks = parsed.filter(p => !existingTickers.has(p.ticker) && !p.invalid);
+        const alreadyAdded = parsed.filter(p => existingTickers.has(p.ticker));
+
+        if (newPicks.length === 0) {
+            alert('Visi šie tickeri jau ir pievienoti');
+            return;
+        }
+
+        const tickersParam = newPicks.map(p => p.ticker).join(',');
+        try {
+            const r = await fetch(`{{ route('instruments.batch') }}?tickers=${encodeURIComponent(tickersParam)}`);
+            const json = await r.json();
+            const lookup = new Map(json.data.map(d => [d.ticker, d]));
+
+            const missing = [];
+            const valid = [];
+            newPicks.forEach(p => {
+                const info = lookup.get(p.ticker);
+                if (!info || !info.found) {
+                    missing.push(p.ticker);
+                    return;
+                }
+                valid.push({ ticker: p.ticker, company_name: info.company_name, explicit_weight: p.weight });
+            });
+
+            if (missing.length) {
+                alert('Nezināmi tickeri (izlaisti): ' + missing.join(', '));
+            }
+            if (valid.length === 0) return;
+
+            // Distribute weights
+            const explicitSum = valid.filter(p => p.explicit_weight !== null).reduce((s, p) => s + p.explicit_weight, 0);
+            const implicitCount = valid.filter(p => p.explicit_weight === null).length;
+            const remaining = Math.max(0, 100 - explicitSum);
+            const implicitWeight = implicitCount > 0 ? remaining / implicitCount : 0;
+
+            const capital = getCapital();
+            valid.forEach(p => {
+                const w = p.explicit_weight !== null ? p.explicit_weight : implicitWeight;
+                picks.push({
+                    ticker: p.ticker,
+                    company_name: p.company_name,
+                    weight: w,
+                    amount: (w / 100) * capital,
+                    date: baseDateInput.value || dataMaxDate,
+                });
+            });
+
+            tickerSearch.value = '';
+            tickerResults.classList.add('hidden');
+            render();
+        } catch (err) {
+            alert('Kļūda meklējot instrumentus: ' + err.message);
+        }
+    }
+
+    tickerSearch.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const text = tickerSearch.value.trim();
+            if (text) addBulkPicks(text);
+        }
+    });
 })();
 </script>
 @endsection
